@@ -34,7 +34,7 @@ function ClassEditor({ classes, onSave }) {
     const save = () => {
         const payload = { classes: items };
         console.log('Saving classes:', payload);
-        fetch('http://localhost:4000/classes', {
+        fetch('/classes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

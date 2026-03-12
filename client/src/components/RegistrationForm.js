@@ -40,7 +40,7 @@ function RegistrationForm({ classes, onSave, editing }) {
         if (editing && editing.name) {
             payload.originalName = editing.name;
         }
-        fetch('http://localhost:4000/register', {
+        fetch('/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

@@ -4,12 +4,12 @@ function RegistrationList({ registrations, onEdit, onReset, classes }) {
     const entries = Object.values(registrations);
 
     const downloadCsv = () => {
-        window.location.href = 'http://localhost:4000/download';
+        window.location.href = '/download';
     };
 
     const resetAll = () => {
         if (window.confirm('Clear all registrations? This cannot be undone.')) {
-            fetch('http://localhost:4000/reset', { method: 'POST' })
+            fetch('/reset', { method: 'POST' })
                 .then(() => {
                     if (onReset) onReset();
                 });
