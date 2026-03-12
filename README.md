@@ -8,7 +8,8 @@ This repository contains a full-stack web application for signing up for RC raci
 - View a live list of everyone who's signed up (transponder hidden)
 - Edit an existing signup by clicking the racer's name
 - Download the registration list as a CSV (`Name,Transponder,Class` with multiple lines per racer as needed)
-- Classes are stored in a server-side text file and can be edited via a separate screen
+- Reset all registrations with the red "Reset All" button on the registration page
+- Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via a separate screen. Each class is now an object with a `name` and `type` (`offroad` or `onroad`), and the signup form shows two columns separated by type. If the app detects an old `classes.txt` file it will convert it automatically on server start.
 - Data persists to files on the server so it survives restarts
 
 ## Dependencies & APIs

@@ -1,26 +1,17 @@
 {
   "Gene Bertman": {
     "name": "Gene Bertman",
-    "transponder": "",
+    "transponder": "a423423",
     "classes": [
-      "Beginner"
+      "GT12"
     ]
   },
   "Brian Shuma": {
     "name": "Brian Shuma",
     "transponder": "",
     "classes": [
-      "Beginner",
-      "Intermediate",
-      "Advanced"
-    ]
-  },
-  "Midnight": {
-    "name": "Midnight",
-    "transponder": "12345",
-    "classes": [
-      "Beginner",
-      "Advanced"
+      "LMH",
+      "Sportsman Buggy"
     ]
   }
 }

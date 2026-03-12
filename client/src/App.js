@@ -61,7 +61,9 @@ function App() {
                                 />
                                 <RegistrationList
                                     registrations={registrations}
+                                    classes={classes}
                                     onEdit={name => setEditing(name)}
+                                    onReset={fetchRegistrations}
                                 />
                             </>
                         }

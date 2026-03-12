@@ -9,7 +9,8 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const DATA_DIR = path.join(__dirname, 'data');
-const CLASSES_FILE = path.join(DATA_DIR, 'classes.txt');
+const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
+const OLD_CLASSES_TXT = path.join(DATA_DIR, 'classes.txt');
 const REG_FILE = path.join(DATA_DIR, 'registrations.json');
 
 // ensure data directory exists
@@ -17,16 +18,30 @@ if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
 }
 
-// read classes from file (newline separated)
+// read classes from file; format is JSON array of { name, type }
 function readClasses() {
+    // migrate old text file if present
+    if (!fs.existsSync(CLASSES_FILE) && fs.existsSync(OLD_CLASSES_TXT)) {
+        const txt = fs.readFileSync(OLD_CLASSES_TXT, 'utf8');
+        const names = txt.split(/\r?\n/).filter(Boolean);
+        const arr = names.map(n => ({ name: n, type: 'offroad' }));
+        fs.writeFileSync(CLASSES_FILE, JSON.stringify(arr, null, 2), 'utf8');
+        fs.unlinkSync(OLD_CLASSES_TXT);
+        return arr;
+    }
+
     if (!fs.existsSync(CLASSES_FILE)) return [];
-    const txt = fs.readFileSync(CLASSES_FILE, 'utf8');
-    return txt.split(/\r?\n/).filter(Boolean);
+    try {
+        const json = fs.readFileSync(CLASSES_FILE, 'utf8');
+        return JSON.parse(json);
+    } catch (e) {
+        return [];
+    }
 }
 
 // save classes array to file
 function saveClasses(list) {
-    fs.writeFileSync(CLASSES_FILE, list.join('\n'), 'utf8');
+    fs.writeFileSync(CLASSES_FILE, JSON.stringify(list, null, 2), 'utf8');
 }
 
 // read registrations JSON, returns object keyed by name
@@ -53,8 +68,15 @@ app.post('/classes', (req, res) => {
     if (!Array.isArray(classes)) {
         return res.status(400).json({ error: 'classes must be array' });
     }
-    saveClasses(classes);
-    res.json({ success: true });
+    console.log('Received POST /classes with:', classes);
+    try {
+        saveClasses(classes);
+        console.log('Classes saved to', CLASSES_FILE);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error saving classes:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/registrations', (req, res) => {
@@ -88,6 +110,12 @@ app.get('/download', (req, res) => {
     res.setHeader('Content-disposition', 'attachment; filename=registrations.csv');
     res.set('Content-Type', 'text/csv');
     res.send(csv);
+});
+
+// clear all registrations
+app.post('/reset', (req, res) => {
+    saveRegistrations({});
+    res.json({ success: true });
 });
 
 app.listen(4000, () => {
