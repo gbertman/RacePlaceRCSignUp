@@ -118,6 +118,18 @@ app.post('/reset', (req, res) => {
     res.json({ success: true });
 });
 
+// Add after other middleware, before routes
+app.use(express.static(path.join(__dirname, '../client/build')));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+});
+
 app.listen(4000, () => {
     console.log('Server started on port 4000');
+});
+
+// build command
+app.get('/build', (req, res) => {
+    res.send('cd client && npm install && npm run build');
 });
