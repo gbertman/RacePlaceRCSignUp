@@ -5,9 +5,6 @@ import './App.css';
 import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
 import ClassEditor from './components/ClassEditor';
-import path from 'path';
-
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 
 function App() {
     const [classes, setClasses] = useState([]);
@@ -15,13 +12,13 @@ function App() {
     const [editing, setEditing] = useState(null); // name being edited
 
     const fetchClasses = () => {
-        fetch(`${DATA_DIR}/classes.json`)
+        fetch('/classes')
             .then(res => res.json())
             .then(data => setClasses(data));
     };
 
     const fetchRegistrations = () => {
-        fetch(`${DATA_DIR}/registrations.json`)
+        fetch('/registrations')
             .then(res => res.json())
             .then(data => setRegistrations(data));
     };
