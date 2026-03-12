@@ -121,8 +121,8 @@ app.post('/reset', (req, res) => {
 // serve static react build
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// catch-all route for client-side routing
-app.get('/*', (req, res) => {
+// catch-all handler for client-side routing (use generic middleware, not path-to-regexp)
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
