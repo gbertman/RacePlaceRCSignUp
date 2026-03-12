@@ -6,7 +6,7 @@
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "server": "node server/index.js",
     "client": "npm start --prefix client",
-    "build": "cd client && npm install && npm run build"
+    "build": "cd server && npm install && cd ../client && npm install && npm run build"
     
   },
   "dependencies": {
