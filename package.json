@@ -1,0 +1,13 @@
+{
+  "name": "raceplacerc",
+  "version": "1.0.0",
+  "description": "RC racing signup application",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "npm start --prefix client"
+  },
+  "dependencies": {
+    "concurrently": "^7.0.0"
+  }
+}

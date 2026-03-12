@@ -1,0 +1,26 @@
+{
+  "Gene Bertman": {
+    "name": "Gene Bertman",
+    "transponder": "",
+    "classes": [
+      "Beginner"
+    ]
+  },
+  "Brian Shuma": {
+    "name": "Brian Shuma",
+    "transponder": "",
+    "classes": [
+      "Beginner",
+      "Intermediate",
+      "Advanced"
+    ]
+  },
+  "Midnight": {
+    "name": "Midnight",
+    "transponder": "12345",
+    "classes": [
+      "Beginner",
+      "Advanced"
+    ]
+  }
+}
