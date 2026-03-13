@@ -59,6 +59,33 @@ function saveRegistrations(regs) {
     fs.writeFileSync(REG_FILE, JSON.stringify(regs, null, 2), 'utf8');
 }
 
+function splitLegacyName(value = '') {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) {
+        return { firstName: parts[0] || '', lastName: '' };
+    }
+    return {
+        firstName: parts[0],
+        lastName: parts.slice(1).join(' '),
+    };
+}
+
+function buildFullName(firstName = '', lastName = '') {
+    return `${firstName} ${lastName}`.trim();
+}
+
+function normalizeRegistration(entry, key) {
+    const legacyName = splitLegacyName(entry?.name || key || '');
+    const firstName = (entry?.firstName || legacyName.firstName || '').trim();
+    const lastName = (entry?.lastName || legacyName.lastName || '').trim();
+    return {
+        firstName,
+        lastName,
+        name: buildFullName(firstName, lastName),
+        classes: Array.isArray(entry?.classes) ? entry.classes : [],
+    };
+}
+
 app.get('/classes', (req, res) => {
     res.json(readClasses());
 });
@@ -81,19 +108,31 @@ app.post('/classes', (req, res) => {
 
 app.get('/registrations', (req, res) => {
     const regs = readRegistrations();
-    res.json(regs);
+    const normalized = Object.fromEntries(
+        Object.entries(regs).map(([key, entry]) => {
+            const registration = normalizeRegistration(entry, key);
+            return [registration.name || key, registration];
+        })
+    );
+    res.json(normalized);
 });
 
 app.post('/register', (req, res) => {
-    const { name, transponder, classes, originalName } = req.body;
-    if (!name) {
-        return res.status(400).json({ error: 'name required' });
+    const { firstName, lastName, classes, originalName } = req.body;
+    const fullName = buildFullName(firstName, lastName);
+    if (!firstName || !lastName) {
+        return res.status(400).json({ error: 'firstName and lastName required' });
     }
     const regs = readRegistrations();
-    if (originalName && originalName !== name && regs[originalName]) {
+    if (originalName && originalName !== fullName && regs[originalName]) {
         delete regs[originalName];
     }
-    regs[name] = { name, transponder: transponder || '', classes: classes || [] };
+    regs[fullName] = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: fullName,
+        classes: classes || [],
+    };
     saveRegistrations(regs);
     res.json({ success: true });
 });
@@ -101,13 +140,15 @@ app.post('/register', (req, res) => {
 app.get('/download', (req, res) => {
     const regs = readRegistrations();
     let lines = [];
-    Object.values(regs).forEach(r => {
+    Object.entries(regs).forEach(([key, entry]) => {
+        const r = normalizeRegistration(entry, key);
         r.classes.forEach(c => {
-            lines.push(`"${r.name}","${r.transponder || ''}","${c}"`);
+            lines.push(`"${r.firstName}","${r.lastName}","${c}"`);
         });
     });
-    const csv = lines.join('\n');
-    res.setHeader('Content-disposition', 'attachment; filename=registrations.csv');
+    const csv = ['"First Name","Last Name","Class"', ...lines].join('\n');
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-disposition', `attachment; filename="Race ${date}.csv"`);
     res.set('Content-Type', 'text/csv');
     res.send(csv);
 });

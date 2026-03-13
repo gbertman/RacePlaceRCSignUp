@@ -1,18 +1,30 @@
 import React, { useState, useEffect } from 'react';
 
 function RegistrationForm({ classes, onSave, editing }) {
-    const [name, setName] = useState('');
-    const [transponder, setTransponder] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [selected, setSelected] = useState([]);
+
+    const splitLegacyName = (value = '') => {
+        const parts = value.trim().split(/\s+/).filter(Boolean);
+        if (parts.length <= 1) {
+            return { firstName: parts[0] || '', lastName: '' };
+        }
+        return {
+            firstName: parts[0],
+            lastName: parts.slice(1).join(' '),
+        };
+    };
 
     useEffect(() => {
         if (editing) {
-            setName(editing.name);
-            setTransponder(editing.transponder || '');
+            const legacyName = splitLegacyName(editing.name);
+            setFirstName(editing.firstName || legacyName.firstName);
+            setLastName(editing.lastName || legacyName.lastName);
             setSelected(editing.classes || []);
         } else {
-            setName('');
-            setTransponder('');
+            setFirstName('');
+            setLastName('');
             setSelected([]);
         }
     }, [editing]);
@@ -31,10 +43,10 @@ function RegistrationForm({ classes, onSave, editing }) {
 
     const submit = (e) => {
         e.preventDefault();
-        if (!name.trim()) return;
+        if (!firstName.trim() || !lastName.trim()) return;
         const payload = {
-            name: name.trim(),
-            transponder: transponder.trim(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
             classes: selected,
         };
         if (editing && editing.name) {
@@ -45,8 +57,8 @@ function RegistrationForm({ classes, onSave, editing }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         }).then(res => res.json()).then(() => {
-            setName('');
-            setTransponder('');
+            setFirstName('');
+            setLastName('');
             setSelected([]);
             onSave();
         });
@@ -56,22 +68,25 @@ function RegistrationForm({ classes, onSave, editing }) {
         <form onSubmit={submit} className="mb-4">
             <h4>{editing ? 'Edit Signup' : 'New Signup'}</h4>
             <div className="mb-3">
-                <label className="form-label">Name *</label>
+                <label className="form-label" htmlFor="firstName">First Name *</label>
                 <input
+                    id="firstName"
                     type="text"
                     className="form-control"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
+                    value={firstName}
+                    onChange={e => setFirstName(e.target.value)}
                     required
                 />
             </div>
             <div className="mb-3">
-                <label className="form-label">Transponder</label>
+                <label className="form-label" htmlFor="lastName">Last Name *</label>
                 <input
+                    id="lastName"
                     type="text"
                     className="form-control"
-                    value={transponder}
-                    onChange={e => setTransponder(e.target.value)}
+                    value={lastName}
+                    onChange={e => setLastName(e.target.value)}
+                    required
                 />
             </div>
             <div className="mb-3">

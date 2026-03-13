@@ -1,17 +1,1 @@
-{
-  "Gene Bertman": {
-    "name": "Gene Bertman",
-    "transponder": "a423423",
-    "classes": [
-      "GT12"
-    ]
-  },
-  "Brian Shuma": {
-    "name": "Brian Shuma",
-    "transponder": "",
-    "classes": [
-      "LMH",
-      "Sportsman Buggy"
-    ]
-  }
-}
+{}

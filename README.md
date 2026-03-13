@@ -4,12 +4,12 @@ This repository contains a full-stack web application for signing up for RC raci
 
 ## Features
 
-- Register racers with name (required), transponder (optional), and multiple class selections
-- View a live list of everyone who's signed up (transponder hidden)
+- Register racers with first name, last name, and multiple class selections
+- View a live list of everyone who's signed up
 - Edit an existing signup by clicking the racer's name
-- Download the registration list as a CSV (`Name,Transponder,Class` with multiple lines per racer as needed)
-- Reset all registrations with the red "Reset All" button on the registration page
-- Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via a separate screen. Each class is now an object with a `name` and `type` (`offroad` or `onroad`), and the signup form shows two columns separated by type. If the app detects an old `classes.txt` file it will convert it automatically on server start.
+- Download the registration list as a CSV (`First Name,Last Name,Class`) named `Race YYYY-MM-DD.csv`
+- Admin tools for reset, CSV download, printing, and class editing live on `/admin`
+- Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via the `/admin` screen. Each class is now an object with a `name` and `type` (`offroad` or `onroad`), and the signup form shows two columns separated by type. If the app detects an old `classes.txt` file it will convert it automatically on server start.
 - Data persists to files on the server so it survives restarts
 
 ## Dependencies & APIs
@@ -30,25 +30,20 @@ No additional external APIs are required; all data is served locally.
 ## Getting Started
 
 1. **Install** dependencies (from workspace root):
-    ```bash
-    npm install
-    cd client && npm install
-    ```
+   ```bash
+   npm install
+   cd client && npm install
+   ```
 2. **Run** the application:
-
-    ```bash
-    npm run start
-    ```
-
-    This will start the backend on port 4000 and the React development server on port 3000.
-
+   ```bash
+   npm run start
+   ```
 3. **Open** your browser to `http://localhost:3000` to access the signup interface.
-
-4. Use the "Edit Classes" link to manage the list of available classes.
+4. Open `/admin` to manage the list of available classes and other admin actions.
 
 ## Data Files
 
-- `server/data/classes.txt` – newline-separated list of class names
-- `server/data/registrations.json` – JSON object storing registrations keyed by racer name
+- `server/data/classes.txt` - newline-separated list of class names
+- `server/data/registrations.json` - JSON object storing registrations keyed by racer name
 
 Feel free to edit these directly if needed.
