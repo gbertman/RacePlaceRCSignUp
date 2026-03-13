@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 
 function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegistrationsChanged }) {
-    const entries = Object.values(registrations);
+    const entries = Object.entries(registrations).map(([key, registration]) => ({
+        key,
+        ...registration,
+    }));
 
     const downloadCsv = async () => {
         try {
@@ -35,6 +38,26 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             fetch('/reset', { method: 'POST' }).then(() => {
                 if (onRegistrationsChanged) onRegistrationsChanged();
             });
+        }
+    };
+
+    const deleteRegistrant = async (name) => {
+        if (!window.confirm(`Delete registration for ${name}? This cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/registrations/${encodeURIComponent(name)}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                throw new Error(`Delete failed with status ${response.status}`);
+            }
+
+            if (onRegistrationsChanged) onRegistrationsChanged();
+        } catch (error) {
+            window.alert(`Unable to delete registrant: ${error.message}`);
         }
     };
 
@@ -89,11 +112,19 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                     <ul className="list-group">
                         {entries.map((r) => (
                             <li
-                                key={r.name}
+                                key={r.key}
                                 className="list-group-item d-flex justify-content-between align-items-center"
                             >
-                                <span>{r.name}</span>
-                                <span>{r.classes.join(', ')}</span>
+                                <div>
+                                    <div>{r.name}</div>
+                                    <div className="text-muted small">{r.classes.join(', ')}</div>
+                                </div>
+                                <button
+                                    className="btn btn-outline-danger btn-sm"
+                                    onClick={() => deleteRegistrant(r.key)}
+                                >
+                                    Delete
+                                </button>
                             </li>
                         ))}
                     </ul>

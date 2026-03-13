@@ -125,6 +125,22 @@ app.post('/register', (req, res) => {
     res.json({ success: true });
 });
 
+app.delete('/registrations/:name', (req, res) => {
+    const name = decodeURIComponent(req.params.name || '').trim();
+    if (!name) {
+        return res.status(400).json({ error: 'name required' });
+    }
+
+    const regs = readRegistrations();
+    if (!regs[name]) {
+        return res.status(404).json({ error: 'registration not found' });
+    }
+
+    delete regs[name];
+    saveRegistrations(regs);
+    res.json({ success: true });
+});
+
 app.get('/download', (req, res) => {
     const regs = readRegistrations();
     let lines = [];

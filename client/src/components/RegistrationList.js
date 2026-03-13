@@ -9,7 +9,12 @@ function RegistrationList({ registrations, onEdit }) {
     return (
         <div>
             <h4>Registered Racers</h4>
-            <p><em>Click on your name below if you need to edit your entry.</em></p>
+            <p>
+                <em>
+                    Click your name below to edit your entry. If you no longer plan to race, please let the
+                    office know so your registration can be removed.
+                </em>
+            </p>
             <ul className="list-group">
                 {entries.map(r => (
                     <li key={r.key} className="list-group-item d-flex justify-content-between align-items-center">
