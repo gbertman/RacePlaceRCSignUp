@@ -10,8 +10,8 @@ app.use(bodyParser.json());
 
 const DATA_DIR = path.join(__dirname, 'data');
 const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
-const OLD_CLASSES_TXT = path.join(DATA_DIR, 'classes.txt');
 const REG_FILE = path.join(DATA_DIR, 'registrations.json');
+const TRACK_FILE = path.join(DATA_DIR, 'track.json');
 
 // ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -20,19 +20,19 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // read classes from file; format is JSON array of { name, type }
 function readClasses() {
-    // migrate old text file if present
-    if (!fs.existsSync(CLASSES_FILE) && fs.existsSync(OLD_CLASSES_TXT)) {
-        const txt = fs.readFileSync(OLD_CLASSES_TXT, 'utf8');
-        const names = txt.split(/\r?\n/).filter(Boolean);
-        const arr = names.map(n => ({ name: n, type: 'offroad' }));
-        fs.writeFileSync(CLASSES_FILE, JSON.stringify(arr, null, 2), 'utf8');
-        fs.unlinkSync(OLD_CLASSES_TXT);
-        return arr;
-    }
-
     if (!fs.existsSync(CLASSES_FILE)) return [];
     try {
         const json = fs.readFileSync(CLASSES_FILE, 'utf8');
+        return JSON.parse(json);
+    } catch (e) {
+        return [];
+    }
+}
+
+function readTracks() {
+    if (!fs.existsSync(TRACK_FILE)) return [];
+    try {
+        const json = fs.readFileSync(TRACK_FILE, 'utf8');
         return JSON.parse(json);
     } catch (e) {
         return [];
@@ -59,35 +59,16 @@ function saveRegistrations(regs) {
     fs.writeFileSync(REG_FILE, JSON.stringify(regs, null, 2), 'utf8');
 }
 
-function splitLegacyName(value = '') {
-    const parts = value.trim().split(/\s+/).filter(Boolean);
-    if (parts.length <= 1) {
-        return { firstName: parts[0] || '', lastName: '' };
-    }
-    return {
-        firstName: parts[0],
-        lastName: parts.slice(1).join(' '),
-    };
-}
-
 function buildFullName(firstName = '', lastName = '') {
     return `${firstName} ${lastName}`.trim();
 }
 
-function normalizeRegistration(entry, key) {
-    const legacyName = splitLegacyName(entry?.name || key || '');
-    const firstName = (entry?.firstName || legacyName.firstName || '').trim();
-    const lastName = (entry?.lastName || legacyName.lastName || '').trim();
-    return {
-        firstName,
-        lastName,
-        name: buildFullName(firstName, lastName),
-        classes: Array.isArray(entry?.classes) ? entry.classes : [],
-    };
-}
-
 app.get('/classes', (req, res) => {
     res.json(readClasses());
+});
+
+app.get('/track', (req, res) => {
+    res.json(readTracks());
 });
 
 app.post('/classes', (req, res) => {
@@ -109,9 +90,16 @@ app.post('/classes', (req, res) => {
 app.get('/registrations', (req, res) => {
     const regs = readRegistrations();
     const normalized = Object.fromEntries(
-        Object.entries(regs).map(([key, entry]) => {
-            const registration = normalizeRegistration(entry, key);
-            return [registration.name || key, registration];
+        Object.values(regs).map((entry) => {
+            const firstName = (entry?.firstName || '').trim();
+            const lastName = (entry?.lastName || '').trim();
+            const registration = {
+                firstName,
+                lastName,
+                name: buildFullName(firstName, lastName),
+                classes: Array.isArray(entry?.classes) ? entry.classes : [],
+            };
+            return [registration.name, registration];
         })
     );
     res.json(normalized);
@@ -140,13 +128,15 @@ app.post('/register', (req, res) => {
 app.get('/download', (req, res) => {
     const regs = readRegistrations();
     let lines = [];
-    Object.entries(regs).forEach(([key, entry]) => {
-        const r = normalizeRegistration(entry, key);
-        r.classes.forEach(c => {
-            lines.push(`"${r.firstName}","${r.lastName}","${c}"`);
+    Object.values(regs).forEach((entry) => {
+        const firstName = (entry?.firstName || '').trim();
+        const lastName = (entry?.lastName || '').trim();
+        const classes = Array.isArray(entry?.classes) ? entry.classes : [];
+        classes.forEach(c => {
+            lines.push(`"${firstName}","${lastName}","${c}"`);
         });
     });
-    const csv = ['"First Name","Last Name","Class"', ...lines].join('\n');
+    const csv = ['"FirstName","LastName","ClassName"', ...lines].join('\n');
     const date = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-disposition', `attachment; filename="Race ${date}.csv"`);
     res.set('Content-Type', 'text/csv');

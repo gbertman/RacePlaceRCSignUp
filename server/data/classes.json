@@ -1,18 +1,18 @@
 [
   {
     "name": "LMH",
-    "type": "onroad"
+    "type": "On Road"
   },
   {
     "name": "GT12",
-    "type": "onroad"
+    "type": "On Road"
   },
   {
     "name": "Sportsman Buggy",
-    "type": "offroad"
+    "type": "Off Road"
   },
   {
     "name": "Expert Buggy",
-    "type": "offroad"
+    "type": "Off Road"
   }
 ]

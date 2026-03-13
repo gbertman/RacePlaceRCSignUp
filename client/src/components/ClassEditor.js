@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function ClassEditor({ classes, onSave }) {
+function ClassEditor({ classes, trackTypes, onSave }) {
     // items: { name, type }
     const [items, setItems] = useState([]);
     const [newName, setNewName] = useState('');
-    const [newType, setNewType] = useState('offroad');
+    const [newType, setNewType] = useState('');
     const inputRef = useRef(null);
 
     useEffect(() => {
-        setItems(classes.map(c => (typeof c === 'string' ? { name: c, type: 'offroad' } : c)));
+        setItems(classes);
     }, [classes]);
+
+    useEffect(() => {
+        if (trackTypes.length > 0 && !trackTypes.includes(newType)) {
+            setNewType(trackTypes[0]);
+        }
+    }, [trackTypes, newType]);
 
     const add = () => {
         if (newName.trim()) {
@@ -33,7 +39,6 @@ function ClassEditor({ classes, onSave }) {
 
     const save = () => {
         const payload = { classes: items };
-        console.log('Saving classes:', payload);
         fetch('/classes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -43,8 +48,7 @@ function ClassEditor({ classes, onSave }) {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();
             })
-            .then(data => {
-                console.log('Save response:', data);
+            .then(() => {
                 alert('Classes saved successfully!');
                 if (onSave) onSave();
             })
@@ -53,9 +57,14 @@ function ClassEditor({ classes, onSave }) {
                 console.error('Save error:', err);
             });
     };
-
-    const offroad = items.filter(i => i.type === 'offroad');
-    const onroad = items.filter(i => i.type === 'onroad');
+    const groupedItems = items.reduce((groups, item) => {
+        const type = item.type || 'Other';
+        if (!groups[type]) {
+            groups[type] = [];
+        }
+        groups[type].push(item);
+        return groups;
+    }, {});
 
     return (
         <div>
@@ -76,57 +85,39 @@ function ClassEditor({ classes, onSave }) {
                         value={newType}
                         onChange={e => setNewType(e.target.value)}
                     >
-                        <option value="offroad">Offroad</option>
-                        <option value="onroad">Onroad</option>
+                        {trackTypes.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                        ))}
                     </select>
                     <button className="btn btn-primary" onClick={add}>Add</button>
                 </div>
             </div>
             <div className="row mb-3">
-                <div className="col">
-                    <h5>Offroad</h5>
-                    <ul className="list-group">
-                        {offroad.map((c, idx) => {
-                            const actualIdx = items.findIndex(item => item.name === c.name && item.type === c.type);
-                            return (
-                                <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                                    {c.name}
-                                    <select
-                                        className="form-select form-select-sm w-auto me-2"
-                                        value={c.type}
-                                        onChange={e => changeType(actualIdx, e.target.value)}
-                                    >
-                                        <option value="offroad">Offroad</option>
-                                        <option value="onroad">Onroad</option>
-                                    </select>
-                                    <button className="btn btn-sm btn-danger" onClick={() => remove(actualIdx)}>Remove</button>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-                <div className="col">
-                    <h5>Onroad</h5>
-                    <ul className="list-group">
-                        {onroad.map((c, idx) => {
-                            const actualIdx = items.findIndex(item => item.name === c.name && item.type === c.type);
-                            return (
-                                <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                                    {c.name}
-                                    <select
-                                        className="form-select form-select-sm w-auto me-2"
-                                        value={c.type}
-                                        onChange={e => changeType(actualIdx, e.target.value)}
-                                    >
-                                        <option value="offroad">Offroad</option>
-                                        <option value="onroad">Onroad</option>
-                                    </select>
-                                    <button className="btn btn-sm btn-danger" onClick={() => remove(actualIdx)}>Remove</button>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
+                {Object.entries(groupedItems).map(([type, group]) => (
+                    <div key={type} className="col">
+                        <h5>{type}</h5>
+                        <ul className="list-group">
+                            {group.map((c, idx) => {
+                                const actualIdx = items.findIndex(item => item.name === c.name && item.type === c.type);
+                                return (
+                                    <li key={`${c.name}-${idx}`} className="list-group-item d-flex justify-content-between align-items-center">
+                                        {c.name}
+                                        <select
+                                            className="form-select form-select-sm w-auto me-2"
+                                            value={c.type}
+                                            onChange={e => changeType(actualIdx, e.target.value)}
+                                        >
+                                            {trackTypes.map((option) => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                        <button className="btn btn-sm btn-danger" onClick={() => remove(actualIdx)}>Remove</button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                ))}
             </div>
             <button className="btn btn-success" onClick={save}>Save Classes</button>
         </div>

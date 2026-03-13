@@ -5,9 +5,11 @@ import './App.css';
 import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
 import AdminPage from './components/AdminPage';
+import NotFoundPage from './components/NotFoundPage';
 
 function App() {
     const [classes, setClasses] = useState([]);
+    const [trackTypes, setTrackTypes] = useState([]);
     const [registrations, setRegistrations] = useState({});
     const [editing, setEditing] = useState(null); // name being edited
 
@@ -23,8 +25,15 @@ function App() {
             .then(data => setRegistrations(data));
     };
 
+    const fetchTrackTypes = () => {
+        fetch('/track')
+            .then(res => res.json())
+            .then(data => setTrackTypes(data));
+    };
+
     useEffect(() => {
         fetchClasses();
+        fetchTrackTypes();
         fetchRegistrations();
     }, []);
 
@@ -61,12 +70,14 @@ function App() {
                         element={
                             <AdminPage
                                 classes={classes}
+                                trackTypes={trackTypes}
                                 registrations={registrations}
                                 onClassesSaved={fetchClasses}
                                 onRegistrationsChanged={fetchRegistrations}
                             />
                         }
                     />
+                    <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>
         </Router>

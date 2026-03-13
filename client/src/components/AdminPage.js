@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 
-function AdminPage({ classes, registrations, onClassesSaved, onRegistrationsChanged }) {
+function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegistrationsChanged }) {
     const entries = Object.values(registrations);
 
     const downloadCsv = async () => {
@@ -39,8 +39,7 @@ function AdminPage({ classes, registrations, onClassesSaved, onRegistrationsChan
     };
 
     const printSheet = () => {
-        const norm = c => (typeof c === 'string' ? { name: c, type: 'offroad' } : c);
-        const names = classes.map(norm).map(c => c.name);
+        const names = classes.map(c => c.name);
         const headers = ['Name', ...names];
         let html = '<html><head><title>RacePlaceRC Admin</title>';
         html += '<style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #000;padding:4px;text-align:left;}</style>';
@@ -100,7 +99,7 @@ function AdminPage({ classes, registrations, onClassesSaved, onRegistrationsChan
                     </ul>
                 )}
             </div>
-            <ClassEditor classes={classes} onSave={onClassesSaved} />
+            <ClassEditor classes={classes} trackTypes={trackTypes} onSave={onClassesSaved} />
         </div>
     );
 }
