@@ -58,7 +58,7 @@ function RegistrationForm({ classes, onSave, editing }) {
 
     return (
         <form onSubmit={submit} className="mb-4">
-            <h4>{editing ? 'Edit Signup' : 'New Signup'}</h4>
+            <h4>{editing ? 'Edit Signup' : 'Signup'}</h4>
             <div className="mb-3">
                 <label className="form-label" htmlFor="firstName">First Name *</label>
                 <input

@@ -6,6 +6,7 @@ import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
 import AdminPage from './components/AdminPage';
 import NotFoundPage from './components/NotFoundPage';
+import racePlaceLogo from './assets/race-place-rc-logo.svg';
 
 function App() {
     const [classes, setClasses] = useState([]);
@@ -39,9 +40,12 @@ function App() {
 
     return (
         <Router>
-            <nav className="navbar navbar-expand-lg navbar-light bg-light">
-                <div className="container-fluid">
-                    <Link className="navbar-brand" to="/">Race Place RC Signup</Link>
+            <nav className="navbar navbar-expand-lg navbar-light bg-light app-navbar">
+                <div className="container-fluid app-navbar-inner">
+                    <Link className="navbar-brand app-brand" to="/" aria-label="Race Place RC Signup home">
+                        <img src={racePlaceLogo} alt="Race Place RC" className="app-logo" />
+                        <span className="app-brand-title">Race Registration</span>
+                    </Link>
                 </div>
             </nav>
             <div className="container mt-4">

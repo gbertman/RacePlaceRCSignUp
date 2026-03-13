@@ -1,3 +1,51 @@
+.app-navbar {
+  border-bottom: 1px solid #d8dee6;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+}
+
+.app-navbar-inner {
+  justify-content: center;
+}
+
+.app-brand {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 auto;
+  padding: 0;
+  text-decoration: none;
+}
+
+.app-logo {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+}
+
+.app-brand-title {
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-size: clamp(1.5rem, 2vw + 1rem, 2.4rem);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0b3f97;
+  text-shadow: 0 2px 0 rgba(107, 214, 70, 0.25);
+}
+
+@media (max-width: 576px) {
+  .app-logo {
+    width: 260px;
+  }
+
+  .app-brand-title {
+    font-size: 1.2rem;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+}
+
 .not-found-page {
   max-width: 540px;
   margin: 4rem auto;
