@@ -131,12 +131,13 @@ app.get('/download', (req, res) => {
     Object.values(regs).forEach((entry) => {
         const firstName = (entry?.firstName || '').trim();
         const lastName = (entry?.lastName || '').trim();
+        const phoneticName = buildFullName(firstName, lastName);
         const classes = Array.isArray(entry?.classes) ? entry.classes : [];
         classes.forEach(c => {
-            lines.push(`"${firstName}","${lastName}","${c}"`);
+            lines.push(`"${firstName}","${lastName}","${phoneticName}","${c}"`);
         });
     });
-    const csv = ['"FirstName","LastName","ClassName"', ...lines].join('\n');
+    const csv = ['"FirstName","LastName","PhoneticName","ClassName"', ...lines].join('\n');
     const date = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-disposition', `attachment; filename="Race ${date}.csv"`);
     res.set('Content-Type', 'text/csv');
