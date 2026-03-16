@@ -22,6 +22,12 @@ const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
 const REG_FILE = path.join(DATA_DIR, 'registrations.json');
 const TRACK_FILE = path.join(DATA_DIR, 'track.json');
 const DRIVERS_FILE = path.join(DATA_DIR, 'drivers.json');
+const TRACK_TYPE_ALIASES = {
+    'on-road': 'On Road',
+    'off-road': 'Off Road',
+    'on road': 'On Road',
+    'off road': 'Off Road',
+};
 
 // ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -38,7 +44,10 @@ function readClasses() {
     if (!fs.existsSync(CLASSES_FILE)) return [];
     try {
         const json = fs.readFileSync(CLASSES_FILE, 'utf8');
-        return JSON.parse(json);
+        return JSON.parse(json).map(item => ({
+            ...item,
+            type: normalizeTrackType(item.type),
+        }));
     } catch (e) {
         return [];
     }
@@ -46,7 +55,11 @@ function readClasses() {
 
 // save classes array to file
 function saveClasses(list) {
-    fs.writeFileSync(CLASSES_FILE, JSON.stringify(list, null, 2), 'utf8');
+    const normalized = list.map(item => ({
+        ...item,
+        type: normalizeTrackType(item.type),
+    }));
+    fs.writeFileSync(CLASSES_FILE, JSON.stringify(normalized, null, 2), 'utf8');
 }
 
 // read registrations JSON, returns object keyed by name
@@ -54,7 +67,22 @@ function readRegistrations() {
     if (!fs.existsSync(REG_FILE)) return {};
     const txt = fs.readFileSync(REG_FILE, 'utf8');
     try {
-        return JSON.parse(txt);
+        const regs = JSON.parse(txt);
+        return Object.fromEntries(
+            Object.entries(regs).map(([key, value]) => {
+                const name = value.name || key;
+                const [firstName = '', ...lastNameParts] = name.split(' ');
+                return [
+                    key,
+                    {
+                        ...value,
+                        name,
+                        firstName: value.firstName || firstName,
+                        lastName: value.lastName || lastNameParts.join(' '),
+                    },
+                ];
+            })
+        );
     } catch (e) {
         return {};
     }
@@ -68,14 +96,18 @@ function readTrackTypes() {
     if (!fs.existsSync(TRACK_FILE)) return [];
     try {
         const json = fs.readFileSync(TRACK_FILE, 'utf8');
-        return JSON.parse(json);
+        return JSON.parse(json).map(normalizeTrackType);
     } catch (e) {
         return [];
     }
 }
 
 function saveTrackTypes(types) {
-    fs.writeFileSync(TRACK_FILE, JSON.stringify(types, null, 2), 'utf8');
+    fs.writeFileSync(
+        TRACK_FILE,
+        JSON.stringify(types.map(normalizeTrackType), null, 2),
+        'utf8'
+    );
 }
 
 function readDrivers() {
@@ -117,6 +149,16 @@ function broadcastRegistrationsUpdated() {
     io.emit('registrationsUpdated');
 }
 
+function broadcastClassesUpdated() {
+    io.emit('classesUpdated');
+}
+
+function normalizeTrackType(type) {
+    const value = (type || '').trim();
+    if (!value) return 'Other';
+    return TRACK_TYPE_ALIASES[value.toLowerCase()] || value;
+}
+
 app.get('/classes', (req, res) => {
     res.json(readClasses());
 });
@@ -145,12 +187,17 @@ app.post('/drivers', (req, res) => {
 });
 
 app.delete('/drivers', (req, res) => {
+    const firstName = (req.query.firstName || '').trim();
     const lastName = (req.query.lastName || '').trim();
-    if (!lastName) {
-        return res.status(400).json({ error: 'lastName query param required' });
+    if (!firstName || !lastName) {
+        return res.status(400).json({ error: 'firstName and lastName query params required' });
     }
     const drivers = readDrivers();
-    const filtered = drivers.filter(d => d.lastName.toLowerCase() !== lastName.toLowerCase());
+    const filtered = drivers.filter(
+        d =>
+            d.firstName.toLowerCase() !== firstName.toLowerCase() ||
+            d.lastName.toLowerCase() !== lastName.toLowerCase()
+    );
     saveDrivers(filtered);
     res.json({ success: true });
 });
@@ -176,6 +223,7 @@ app.post('/restore', (req, res) => {
         if (Array.isArray(trackTypes)) saveTrackTypes(trackTypes);
         if (Array.isArray(drivers)) saveDrivers(drivers);
         broadcastRegistrationsUpdated();
+        broadcastClassesUpdated();
         res.json({ success: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -191,6 +239,7 @@ app.post('/classes', (req, res) => {
     try {
         saveClasses(classes);
         console.log('Classes saved to', CLASSES_FILE);
+        broadcastClassesUpdated();
         res.json({ success: true });
     } catch (err) {
         console.error('Error saving classes:', err);
@@ -222,7 +271,9 @@ app.delete('/registrations/:name', (req, res) => {
 
 app.post('/register', (req, res) => {
     const { firstName, lastName, classes, originalName } = req.body;
-    const name = `${firstName} ${lastName}`.trim();
+    const normalizedFirstName = (firstName || '').trim();
+    const normalizedLastName = (lastName || '').trim();
+    const name = `${normalizedFirstName} ${normalizedLastName}`.trim();
     if (!name) {
         return res.status(400).json({ error: 'name required' });
     }
@@ -230,9 +281,14 @@ app.post('/register', (req, res) => {
     if (originalName && originalName !== name && regs[originalName]) {
         delete regs[originalName];
     }
-    regs[name] = { name, classes: classes || [] };
+    regs[name] = {
+        name,
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
+        classes: classes || [],
+    };
     saveRegistrations(regs);
-    addDriverIfMissing(firstName, lastName);
+    addDriverIfMissing(normalizedFirstName, normalizedLastName);
     broadcastRegistrationsUpdated();
     res.json({ success: true });
 });
@@ -241,8 +297,8 @@ app.get('/download', (req, res) => {
     const regs = readRegistrations();
     const lines = ['FirstName,LastName,ClassName,IsPaid'];
     Object.values(regs).forEach(r => {
-        const [firstName = '', ...lastNameParts] = (r.name || '').split(' ');
-        const lastName = lastNameParts.join(' ');
+        const firstName = r.firstName || '';
+        const lastName = r.lastName || '';
         r.classes.forEach(c => {
             lines.push(`"${firstName}","${lastName}","${c}","True"`);
         });

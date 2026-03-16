@@ -86,13 +86,14 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         }
     };
 
-    const deleteDriver = async (lastName) => {
-        if (!window.confirm(`Delete all drivers with last name "${lastName}"?`)) return;
+    const deleteDriver = async (firstName, lastName) => {
+        if (!window.confirm(`Delete driver "${firstName} ${lastName}"?`)) return;
 
         try {
-            const response = await fetch(`/drivers?lastName=${encodeURIComponent(lastName)}`, {
-                method: 'DELETE',
-            });
+            const response = await fetch(
+                `/drivers?firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`,
+                { method: 'DELETE' }
+            );
             if (!response.ok) {
                 throw new Error(`Failed to delete driver: ${response.status}`);
             }
@@ -339,7 +340,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                                                     </div>
                                                     <button
                                                         className="btn btn-sm btn-outline-danger"
-                                                        onClick={() => deleteDriver(d.lastName)}
+                                                        onClick={() => deleteDriver(d.firstName, d.lastName)}
                                                     >
                                                         Delete
                                                     </button>

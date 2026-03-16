@@ -31,12 +31,6 @@ function ClassEditor({ classes, trackTypes, onSave }) {
         setItems(items.filter((_, i) => i !== idx));
     };
 
-    const changeType = (idx, type) => {
-        const copy = [...items];
-        copy[idx].type = type;
-        setItems(copy);
-    };
-
     const save = () => {
         const payload = { classes: items };
         fetch('/classes', {
@@ -70,26 +64,36 @@ function ClassEditor({ classes, trackTypes, onSave }) {
         <div>
             <h4>Edit Classes</h4>
             <div className="mb-3">
-                <div className="input-group">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        className="form-control"
-                        placeholder="New class"
-                        value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && add()}
-                    />
-                    <select
-                        className="form-select"
-                        value={newType}
-                        onChange={e => setNewType(e.target.value)}
-                    >
-                        {trackTypes.map((type) => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
-                    <button className="btn btn-primary" onClick={add}>Add</button>
+                <div className="row g-2 align-items-end">
+                    <div className="col-md-5">
+                        <label className="form-label" htmlFor="new-class-name">Class:</label>
+                        <input
+                            id="new-class-name"
+                            ref={inputRef}
+                            type="text"
+                            className="form-control"
+                            placeholder="New class"
+                            value={newName}
+                            onChange={e => setNewName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && add()}
+                        />
+                    </div>
+                    <div className="col-md-3">
+                        <label className="form-label" htmlFor="new-class-track">Track:</label>
+                        <select
+                            id="new-class-track"
+                            className="form-select"
+                            value={newType}
+                            onChange={e => setNewType(e.target.value)}
+                        >
+                            {trackTypes.map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="col-md-auto">
+                        <button className="btn btn-primary" onClick={add}>Add</button>
+                    </div>
                 </div>
             </div>
             <div className="row mb-3">
@@ -101,16 +105,10 @@ function ClassEditor({ classes, trackTypes, onSave }) {
                                 const actualIdx = items.findIndex(item => item.name === c.name && item.type === c.type);
                                 return (
                                     <li key={`${c.name}-${idx}`} className="list-group-item d-flex justify-content-between align-items-center">
-                                        {c.name}
-                                        <select
-                                            className="form-select form-select-sm w-auto me-2"
-                                            value={c.type}
-                                            onChange={e => changeType(actualIdx, e.target.value)}
-                                        >
-                                            {trackTypes.map((option) => (
-                                                <option key={option} value={option}>{option}</option>
-                                            ))}
-                                        </select>
+                                        <div>
+                                            <div>{c.name}</div>
+                                            <div className="text-muted small">{c.type}</div>
+                                        </div>
                                         <button className="btn btn-sm btn-danger" onClick={() => remove(actualIdx)}>Remove</button>
                                     </li>
                                 );

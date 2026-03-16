@@ -46,6 +46,11 @@ function App() {
             fetchRegistrations();
         });
 
+        socket.on('classesUpdated', () => {
+            fetchClasses();
+            fetchTrackTypes();
+        });
+
         return () => {
             socket.disconnect();
         };
