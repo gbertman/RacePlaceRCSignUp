@@ -7,7 +7,7 @@ This repository contains a full-stack web application for signing up for RC raci
 - Register racers with first name, last name, and multiple class selections
 - View a live list of everyone who's signed up
 - Edit an existing signup by clicking the racer's name
-- Download the registration list as a CSV (`FirstName,LastName,PhoneticName,ClassName`) named `Race YYYY-MM-DD.csv`
+- Download the registration list as a CSV (`FirstName,LastName,ClassName`) named `Race YYYY-MM-DD.csv`
 - Admin tools for reset, CSV download, printing, and class editing live on `/admin`
 - Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via the `/admin` screen. Track types come from `server/data/track.json`, and class grouping in the UI follows those values dynamically.
 - Data persists to files on the server so it survives restarts
@@ -30,14 +30,14 @@ No additional external APIs are required; all data is served locally.
 ## Getting Started
 
 1. **Install** dependencies (from workspace root):
-   ```bash
-   npm install
-   cd client && npm install
-   ```
+    ```bash
+    npm install
+    cd client && npm install
+    ```
 2. **Run** the application:
-   ```bash
-   npm run start
-   ```
+    ```bash
+    npm run start
+    ```
 3. **Open** your browser to `http://localhost:3000` to access the signup interface.
 4. Open `/admin` to manage the list of available classes and other admin actions.
 

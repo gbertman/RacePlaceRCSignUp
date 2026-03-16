@@ -15,8 +15,9 @@ function RegistrationForm({ classes, onSave, editing }) {
 
     useEffect(() => {
         if (editing) {
-            setFirstName(editing.firstName || '');
-            setLastName(editing.lastName || '');
+            const [first, ...rest] = editing.name.split(' ');
+            setFirstName(first || '');
+            setLastName(rest.join(' ') || '');
             setSelected(editing.classes || []);
         } else {
             setFirstName('');
