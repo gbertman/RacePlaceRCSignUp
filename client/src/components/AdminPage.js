@@ -1,8 +1,14 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 
 function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegistrationsChanged }) {
+    const [drivers, setDrivers] = useState([]);
+    const [isDriverModalOpen, setDriverModalOpen] = useState(false);
+    const [newDriverFirst, setNewDriverFirst] = useState('');
+    const [newDriverLast, setNewDriverLast] = useState('');
+    const driverModalRef = useRef(null);
+
     const entries = Object.entries(registrations).map(([key, registration]) => ({
         key,
         ...registration,
@@ -30,6 +36,69 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             window.URL.revokeObjectURL(url);
         } catch (error) {
             window.alert(`Unable to download CSV: ${error.message}`);
+        }
+    };
+
+    const loadDrivers = async () => {
+        try {
+            const response = await fetch('/drivers');
+            if (!response.ok) {
+                throw new Error(`Failed to load drivers: ${response.status}`);
+            }
+            const data = await response.json();
+            setDrivers(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Unable to load drivers:', error);
+            setDrivers([]);
+        }
+    };
+
+    useEffect(() => {
+        if (isDriverModalOpen) {
+            loadDrivers();
+            setTimeout(() => {
+                const first = driverModalRef.current?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                first?.focus();
+            }, 0);
+        }
+    }, [isDriverModalOpen]);
+
+    const addDriver = async () => {
+        if (!newDriverFirst.trim() || !newDriverLast.trim()) {
+            window.alert('First and last name are required');
+            return;
+        }
+
+        try {
+            const response = await fetch('/drivers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ firstName: newDriverFirst.trim(), lastName: newDriverLast.trim() }),
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to add driver: ${response.status}`);
+            }
+            setNewDriverFirst('');
+            setNewDriverLast('');
+            loadDrivers();
+        } catch (error) {
+            window.alert(`Unable to add driver: ${error.message}`);
+        }
+    };
+
+    const deleteDriver = async (lastName) => {
+        if (!window.confirm(`Delete all drivers with last name "${lastName}"?`)) return;
+
+        try {
+            const response = await fetch(`/drivers?lastName=${encodeURIComponent(lastName)}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to delete driver: ${response.status}`);
+            }
+            loadDrivers();
+        } catch (error) {
+            window.alert(`Unable to delete driver: ${error.message}`);
         }
     };
 
@@ -172,11 +241,8 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 <button className="btn btn-secondary me-2" onClick={downloadCsv}>
                     Download CSV
                 </button>
-                <button className="btn btn-secondary me-2" onClick={backupData}>
-                    Backup
-                </button>
-                <button className="btn btn-secondary me-2" onClick={triggerRestore}>
-                    Restore
+                <button className="btn btn-secondary me-2" onClick={() => setDriverModalOpen(true)}>
+                    Driver List
                 </button>
                 <button className="btn btn-success me-2" onClick={printSheet}>
                     Print Spreadsheet
@@ -222,6 +288,76 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 )}
             </div>
             <ClassEditor classes={classes} trackTypes={trackTypes} onSave={onClassesSaved} />
+            <div className="mt-4">
+                <h4>Maintenance</h4>
+                <button className="btn btn-secondary me-2" onClick={backupData}>
+                    Backup
+                </button>
+                <button className="btn btn-secondary me-2" onClick={triggerRestore}>
+                    Restore
+                </button>
+            </div>
+
+            {isDriverModalOpen ? (
+                <div className="modal" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+                    <div className="modal-dialog modal-dialog-centered" role="dialog" aria-modal="true" aria-labelledby="driver-list-modal-title" ref={driverModalRef} tabIndex={-1}>
+                        <div className="modal-content">
+                            <div className="modal-header">
+                                <h5 className="modal-title" id="driver-list-modal-title">Driver List</h5>
+                                <button type="button" className="btn-close" aria-label="Close" onClick={() => setDriverModalOpen(false)} />
+                            </div>
+                            <div className="modal-body">
+                                <div className="mb-3">
+                                    <label className="form-label">First Name</label>
+                                    <input
+                                        className="form-control"
+                                        value={newDriverFirst}
+                                        onChange={e => setNewDriverFirst(e.target.value)}
+                                    />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">Last Name</label>
+                                    <input
+                                        className="form-control"
+                                        value={newDriverLast}
+                                        onChange={e => setNewDriverLast(e.target.value)}
+                                    />
+                                </div>
+                                <button className="btn btn-primary mb-3" onClick={addDriver}>
+                                    Add Driver
+                                </button>
+                                <div>
+                                    <h6>Existing Drivers</h6>
+                                    {drivers.length === 0 ? (
+                                        <p className="text-muted">No drivers yet.</p>
+                                    ) : (
+                                        <ul className="list-group">
+                                            {drivers.map((d, idx) => (
+                                                <li key={`${d.lastName}-${idx}`} className="list-group-item d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        {d.firstName} {d.lastName}
+                                                    </div>
+                                                    <button
+                                                        className="btn btn-sm btn-outline-danger"
+                                                        onClick={() => deleteDriver(d.lastName)}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={() => setDriverModalOpen(false)}>
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

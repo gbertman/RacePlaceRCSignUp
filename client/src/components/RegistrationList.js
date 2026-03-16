@@ -7,7 +7,7 @@ function RegistrationList({ registrations, onEdit }) {
     }));
 
     return (
-        <div>
+        <div className="pb-3">
             <h4>Registered Racers</h4>
             <p>
                 <em>

@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "RC racing signup application",
   "scripts": {
-    "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node server/index.js",
+    "start": "npm run dev",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
+    "server": "npm run server:prod",
+    "server:dev": "set NODE_ENV=development&& node server/index.js",
+    "server:prod": "set NODE_ENV=production&& node server/index.js",
+    "start:prod": "set NODE_ENV=production&& node server/index.js",
     "client": "npm start --prefix client",
     "build": "cd server && npm install && cd ../client && npm install && npm run build"
     

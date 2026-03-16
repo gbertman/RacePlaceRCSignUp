@@ -1,36 +1,40 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const { Server } = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+const isProduction = process.env.NODE_ENV === 'production';
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+    },
+});
 app.use(cors());
 app.use(bodyParser.json());
 
 const DATA_DIR = path.join(__dirname, 'data');
 const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
-const OLD_CLASSES_TXT = path.join(DATA_DIR, 'classes.txt');
 const REG_FILE = path.join(DATA_DIR, 'registrations.json');
 const TRACK_FILE = path.join(DATA_DIR, 'track.json');
+const DRIVERS_FILE = path.join(DATA_DIR, 'drivers.json');
 
 // ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
 }
 
+// ensure driver list file exists
+if (!fs.existsSync(DRIVERS_FILE)) {
+    fs.writeFileSync(DRIVERS_FILE, JSON.stringify([], null, 2), 'utf8');
+}
+
 // read classes from file; format is JSON array of { name, type }
 function readClasses() {
-    // migrate old text file if present
-    if (!fs.existsSync(CLASSES_FILE) && fs.existsSync(OLD_CLASSES_TXT)) {
-        const txt = fs.readFileSync(OLD_CLASSES_TXT, 'utf8');
-        const names = txt.split(/\r?\n/).filter(Boolean);
-        const arr = names.map(n => ({ name: n, type: 'offroad' }));
-        fs.writeFileSync(CLASSES_FILE, JSON.stringify(arr, null, 2), 'utf8');
-        fs.unlinkSync(OLD_CLASSES_TXT);
-        return arr;
-    }
-
     if (!fs.existsSync(CLASSES_FILE)) return [];
     try {
         const json = fs.readFileSync(CLASSES_FILE, 'utf8');
@@ -74,6 +78,45 @@ function saveTrackTypes(types) {
     fs.writeFileSync(TRACK_FILE, JSON.stringify(types, null, 2), 'utf8');
 }
 
+function readDrivers() {
+    if (!fs.existsSync(DRIVERS_FILE)) return [];
+    try {
+        const json = fs.readFileSync(DRIVERS_FILE, 'utf8');
+        return JSON.parse(json);
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveDrivers(drivers) {
+    fs.writeFileSync(DRIVERS_FILE, JSON.stringify(drivers, null, 2), 'utf8');
+}
+
+function addDriverIfMissing(firstName, lastName) {
+    const normalizedFirstName = (firstName || '').trim();
+    const normalizedLastName = (lastName || '').trim();
+
+    if (!normalizedFirstName || !normalizedLastName) {
+        return;
+    }
+
+    const drivers = readDrivers();
+    const exists = drivers.some(
+        driver =>
+            driver.firstName.trim().toLowerCase() === normalizedFirstName.toLowerCase() &&
+            driver.lastName.trim().toLowerCase() === normalizedLastName.toLowerCase()
+    );
+
+    if (!exists) {
+        drivers.push({ firstName: normalizedFirstName, lastName: normalizedLastName });
+        saveDrivers(drivers);
+    }
+}
+
+function broadcastRegistrationsUpdated() {
+    io.emit('registrationsUpdated');
+}
+
 app.get('/classes', (req, res) => {
     res.json(readClasses());
 });
@@ -82,11 +125,42 @@ app.get('/track', (req, res) => {
     res.json(readTrackTypes());
 });
 
+app.get('/drivers', (req, res) => {
+    const lastName = (req.query.lastName || '').trim().toLowerCase();
+    const drivers = readDrivers();
+    if (!lastName) {
+        return res.json(drivers);
+    }
+    const matches = drivers.filter(d => d.lastName.toLowerCase() === lastName);
+    res.json(matches);
+});
+
+app.post('/drivers', (req, res) => {
+    const { firstName, lastName } = req.body;
+    if (!firstName || !lastName) {
+        return res.status(400).json({ error: 'firstName and lastName are required' });
+    }
+    addDriverIfMissing(firstName, lastName);
+    res.json({ success: true });
+});
+
+app.delete('/drivers', (req, res) => {
+    const lastName = (req.query.lastName || '').trim();
+    if (!lastName) {
+        return res.status(400).json({ error: 'lastName query param required' });
+    }
+    const drivers = readDrivers();
+    const filtered = drivers.filter(d => d.lastName.toLowerCase() !== lastName.toLowerCase());
+    saveDrivers(filtered);
+    res.json({ success: true });
+});
+
 app.get('/backup', (req, res) => {
     const backup = {
         classes: readClasses(),
         registrations: readRegistrations(),
         trackTypes: readTrackTypes(),
+        drivers: readDrivers(),
     };
     const filename = `raceplace-backup-${new Date().toISOString().slice(0, 10)}.json`;
     res.setHeader('Content-disposition', `attachment; filename=${filename}`);
@@ -96,10 +170,12 @@ app.get('/backup', (req, res) => {
 
 app.post('/restore', (req, res) => {
     try {
-        const { classes, registrations, trackTypes } = req.body;
+        const { classes, registrations, trackTypes, drivers } = req.body;
         if (Array.isArray(classes)) saveClasses(classes);
         if (registrations && typeof registrations === 'object') saveRegistrations(registrations);
         if (Array.isArray(trackTypes)) saveTrackTypes(trackTypes);
+        if (Array.isArray(drivers)) saveDrivers(drivers);
+        broadcastRegistrationsUpdated();
         res.json({ success: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -127,6 +203,23 @@ app.get('/registrations', (req, res) => {
     res.json(regs);
 });
 
+app.delete('/registrations/:name', (req, res) => {
+    const name = decodeURIComponent(req.params.name || '').trim();
+    if (!name) {
+        return res.status(400).json({ error: 'name required' });
+    }
+
+    const regs = readRegistrations();
+    if (!regs[name]) {
+        return res.status(404).json({ error: 'registration not found' });
+    }
+
+    delete regs[name];
+    saveRegistrations(regs);
+    broadcastRegistrationsUpdated();
+    res.json({ success: true });
+});
+
 app.post('/register', (req, res) => {
     const { firstName, lastName, classes, originalName } = req.body;
     const name = `${firstName} ${lastName}`.trim();
@@ -139,19 +232,25 @@ app.post('/register', (req, res) => {
     }
     regs[name] = { name, classes: classes || [] };
     saveRegistrations(regs);
+    addDriverIfMissing(firstName, lastName);
+    broadcastRegistrationsUpdated();
     res.json({ success: true });
 });
 
 app.get('/download', (req, res) => {
     const regs = readRegistrations();
-    let lines = [];
+    const lines = ['FirstName,LastName,ClassName,IsPaid'];
     Object.values(regs).forEach(r => {
+        const [firstName = '', ...lastNameParts] = (r.name || '').split(' ');
+        const lastName = lastNameParts.join(' ');
         r.classes.forEach(c => {
-            lines.push(`"${r.name}","${c}"`);
+            lines.push(`"${firstName}","${lastName}","${c}","True"`);
         });
     });
     const csv = lines.join('\n');
-    res.setHeader('Content-disposition', 'attachment; filename=registrations.csv');
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `${date} Race Registrations.csv`;
+    res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
     res.set('Content-Type', 'text/csv');
     res.send(csv);
 });
@@ -159,19 +258,28 @@ app.get('/download', (req, res) => {
 // clear all registrations
 app.post('/reset', (req, res) => {
     saveRegistrations({});
+    broadcastRegistrationsUpdated();
     res.json({ success: true });
 });
 
-// serve static react build
-app.use(express.static(path.join(__dirname, '../client/build')));
+if (isProduction) {
+    const buildDir = path.join(__dirname, '../client/build');
+    const indexFile = path.join(buildDir, 'index.html');
 
-// catch-all handler for client-side routing (use generic middleware, not path-to-regexp)
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
-});
+    app.use(express.static(buildDir));
+
+    // catch-all handler for client-side routing (use generic middleware, not path-to-regexp)
+    app.use((req, res, next) => {
+        if (!fs.existsSync(indexFile)) {
+            return next(new Error(`Missing production build file: ${indexFile}`));
+        }
+
+        res.sendFile(indexFile);
+    });
+}
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
 

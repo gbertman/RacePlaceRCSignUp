@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import RegistrationForm from './components/RegistrationForm';
@@ -36,6 +37,18 @@ function App() {
         fetchClasses();
         fetchTrackTypes();
         fetchRegistrations();
+    }, []);
+
+    useEffect(() => {
+        const socket = io();
+
+        socket.on('registrationsUpdated', () => {
+            fetchRegistrations();
+        });
+
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     return (
