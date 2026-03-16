@@ -64,27 +64,47 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     const printSheet = () => {
         const names = classes.map(c => c.name);
         const headers = ['Name', ...names];
-        let html = '<html><head><title>RacePlaceRC Admin</title>';
-        html += '<style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #000;padding:4px;text-align:left;}</style>';
-        html += '</head><body><table><thead><tr>';
-        headers.forEach(h => { html += `<th>${h}</th>`; });
-        html += '</tr></thead><tbody>';
-        entries.forEach(r => {
-            html += '<tr>';
-            html += `<td>${r.name}</td>`;
-            names.forEach(n => {
-                html += `<td>${r.classes.includes(n) ? 'X' : ''}</td>`;
-            });
-            html += '</tr>';
+        const win = window.open('', '_blank');
+        if (!win) return;
+
+        win.document.title = 'RacePlaceRC Admin';
+
+        const style = win.document.createElement('style');
+        style.textContent = 'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #000;padding:4px;text-align:left;}';
+        win.document.head.appendChild(style);
+
+        const table = win.document.createElement('table');
+
+        const thead = win.document.createElement('thead');
+        const headerRow = win.document.createElement('tr');
+        headers.forEach((h) => {
+            const th = win.document.createElement('th');
+            th.textContent = h;
+            headerRow.appendChild(th);
         });
-        html += '</tbody></table></body></html>';
-        const win = window.open();
-        if (win) {
-            win.document.write(html);
-            win.document.close();
-            win.focus();
-            win.print();
-        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = win.document.createElement('tbody');
+        entries.forEach((r) => {
+            const row = win.document.createElement('tr');
+            const nameCell = win.document.createElement('td');
+            nameCell.textContent = r.name;
+            row.appendChild(nameCell);
+
+            names.forEach((n) => {
+                const cell = win.document.createElement('td');
+                cell.textContent = r.classes.includes(n) ? 'X' : '';
+                row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+
+        win.document.body.appendChild(table);
+        win.focus();
+        win.print();
     };
 
     return (
