@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 
@@ -30,6 +30,61 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             window.URL.revokeObjectURL(url);
         } catch (error) {
             window.alert(`Unable to download CSV: ${error.message}`);
+        }
+    };
+
+    const backupData = async () => {
+        try {
+            const response = await fetch('/backup');
+            if (!response.ok) {
+                throw new Error(`Backup failed with status ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+            const filename = filenameMatch ? filenameMatch[1] : 'raceplace-backup.json';
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            window.alert(`Unable to backup data: ${error.message}`);
+        }
+    };
+
+    const restoreInputRef = useRef(null);
+
+    const restoreData = async (file) => {
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const json = JSON.parse(text);
+            const response = await fetch('/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(json),
+            });
+            if (!response.ok) {
+                throw new Error(`Restore failed with status ${response.status}`);
+            }
+            if (onClassesSaved) onClassesSaved();
+            if (onRegistrationsChanged) onRegistrationsChanged();
+            window.alert('Restore completed successfully.');
+        } catch (error) {
+            window.alert(`Unable to restore data: ${error.message}`);
+        }
+    };
+
+    const triggerRestore = () => {
+        if (restoreInputRef.current) {
+            restoreInputRef.current.value = null;
+            restoreInputRef.current.click();
         }
     };
 
@@ -117,12 +172,28 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 <button className="btn btn-secondary me-2" onClick={downloadCsv}>
                     Download CSV
                 </button>
+                <button className="btn btn-secondary me-2" onClick={backupData}>
+                    Backup
+                </button>
+                <button className="btn btn-secondary me-2" onClick={triggerRestore}>
+                    Restore
+                </button>
                 <button className="btn btn-success me-2" onClick={printSheet}>
                     Print Spreadsheet
                 </button>
                 <button className="btn btn-danger" onClick={resetAll}>
                     Reset All
                 </button>
+                <input
+                    ref={restoreInputRef}
+                    type="file"
+                    accept="application/json"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                        const file = e.target.files && e.target.files[0];
+                        if (file) restoreData(file);
+                    }}
+                />
             </div>
             <div className="mb-4">
                 <h5>Current Registrants</h5>

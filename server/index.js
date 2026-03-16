@@ -12,6 +12,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
 const OLD_CLASSES_TXT = path.join(DATA_DIR, 'classes.txt');
 const REG_FILE = path.join(DATA_DIR, 'registrations.json');
+const TRACK_FILE = path.join(DATA_DIR, 'track.json');
 
 // ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -59,8 +60,50 @@ function saveRegistrations(regs) {
     fs.writeFileSync(REG_FILE, JSON.stringify(regs, null, 2), 'utf8');
 }
 
+function readTrackTypes() {
+    if (!fs.existsSync(TRACK_FILE)) return [];
+    try {
+        const json = fs.readFileSync(TRACK_FILE, 'utf8');
+        return JSON.parse(json);
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveTrackTypes(types) {
+    fs.writeFileSync(TRACK_FILE, JSON.stringify(types, null, 2), 'utf8');
+}
+
 app.get('/classes', (req, res) => {
     res.json(readClasses());
+});
+
+app.get('/track', (req, res) => {
+    res.json(readTrackTypes());
+});
+
+app.get('/backup', (req, res) => {
+    const backup = {
+        classes: readClasses(),
+        registrations: readRegistrations(),
+        trackTypes: readTrackTypes(),
+    };
+    const filename = `raceplace-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader('Content-disposition', `attachment; filename=${filename}`);
+    res.set('Content-Type', 'application/json');
+    res.send(JSON.stringify(backup, null, 2));
+});
+
+app.post('/restore', (req, res) => {
+    try {
+        const { classes, registrations, trackTypes } = req.body;
+        if (Array.isArray(classes)) saveClasses(classes);
+        if (registrations && typeof registrations === 'object') saveRegistrations(registrations);
+        if (Array.isArray(trackTypes)) saveTrackTypes(trackTypes);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 app.post('/classes', (req, res) => {
