@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -24,19 +25,16 @@ const REG_FILE = path.join(DATA_DIR, 'registrations.json');
 const TRACK_FILE = path.join(DATA_DIR, 'track.json');
 const DRIVERS_FILE = path.join(DATA_DIR, 'drivers.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const DEFAULT_ADMIN_PASSWORD = 'admin';
+const BCRYPT_SALT_ROUNDS = 10;
 const DEFAULT_ADMIN_USER = {
     username: 'admin',
-    password: 'admin',
+    password: DEFAULT_ADMIN_PASSWORD,
     role: 'administrator',
 };
 const ADMIN_COOKIE_NAME = 'raceplace_admin_session';
 const adminSessions = new Map();
-const TRACK_TYPE_ALIASES = {
-    'on-road': 'On Road',
-    'off-road': 'Off Road',
-    'on road': 'On Road',
-    'off road': 'Off Road',
-};
+
 
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
@@ -144,34 +142,62 @@ function normalizeUser(user) {
     };
 }
 
+function isBcryptHash(password) {
+    return /^\$2[aby]\$\d{2}\$/.test(password || '');
+}
+
+function hashPassword(password) {
+    return bcrypt.hashSync(String(password || ''), BCRYPT_SALT_ROUNDS);
+}
+
+function normalizeStoredUser(user) {
+    const normalized = normalizeUser(user);
+    return {
+        ...normalized,
+        password: normalized.password ? (isBcryptHash(normalized.password) ? normalized.password : hashPassword(normalized.password)) : '',
+    };
+}
+
 function readUsers() {
     if (!fs.existsSync(USERS_FILE)) {
-        return [DEFAULT_ADMIN_USER];
+        const defaultUsers = [normalizeStoredUser(DEFAULT_ADMIN_USER)];
+        saveUsers(defaultUsers);
+        return defaultUsers;
     }
 
     try {
         const json = fs.readFileSync(USERS_FILE, 'utf8');
         const parsed = JSON.parse(json);
-        const users = Array.isArray(parsed) ? parsed.map(normalizeUser).filter(user => user.username) : [];
+        const users = Array.isArray(parsed) ? parsed.map(normalizeStoredUser).filter(user => user.username) : [];
         const hasAdmin = users.some(user => user.role === 'administrator');
+        const needsMigration = Array.isArray(parsed)
+            ? parsed.some(user => {
+                const normalized = normalizeUser(user);
+                return Boolean(normalized.username && normalized.password && !isBcryptHash(normalized.password));
+            })
+            : false;
 
         if (!hasAdmin) {
-            users.unshift(DEFAULT_ADMIN_USER);
+            users.unshift(normalizeStoredUser(DEFAULT_ADMIN_USER));
+            saveUsers(users);
+        } else if (needsMigration) {
             saveUsers(users);
         }
 
         return users;
     } catch {
-        return [DEFAULT_ADMIN_USER];
+        const defaultUsers = [normalizeStoredUser(DEFAULT_ADMIN_USER)];
+        saveUsers(defaultUsers);
+        return defaultUsers;
     }
 }
 
 function saveUsers(users) {
     const normalizedUsers = users
-        .map(normalizeUser)
+        .map(normalizeStoredUser)
         .filter(user => user.username);
     const hasAdmin = normalizedUsers.some(user => user.role === 'administrator');
-    const finalUsers = hasAdmin ? normalizedUsers : [DEFAULT_ADMIN_USER, ...normalizedUsers];
+    const finalUsers = hasAdmin ? normalizedUsers : [normalizeStoredUser(DEFAULT_ADMIN_USER), ...normalizedUsers];
 
     fs.writeFileSync(USERS_FILE, JSON.stringify(finalUsers, null, 2), 'utf8');
 }
@@ -208,7 +234,7 @@ function broadcastClassesUpdated() {
 function normalizeTrackType(type) {
     const value = (type || '').trim();
     if (!value) return 'Other';
-    return TRACK_TYPE_ALIASES[value.toLowerCase()] || value;
+    return value;
 }
 
 function normalizeTrackConfig(track) {
@@ -376,7 +402,7 @@ app.post('/admin/login', (req, res) => {
     const users = readUsers();
     const user = users.find(item => item.username === normalizedUsername);
 
-    if (!user || user.password !== password) {
+    if (!user || !bcrypt.compareSync(String(password || ''), user.password)) {
         return res.status(401).json({ error: 'Invalid username or password' });
     }
 
