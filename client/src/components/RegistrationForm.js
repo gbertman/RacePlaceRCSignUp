@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function RegistrationForm({ classes, onSave, editing }) {
+function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [driverMatch, setDriverMatch] = useState(null);
@@ -127,7 +127,13 @@ function RegistrationForm({ classes, onSave, editing }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).then(res => res.json()).then(() => {
+        }).then(async res => {
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data?.error || `Registration failed with status ${res.status}`);
+            }
+            return data;
+        }).then(() => {
             setFirstName('');
             setLastName('');
             setSelected([]);
@@ -138,6 +144,8 @@ function RegistrationForm({ classes, onSave, editing }) {
             setShowUpdateModal(false);
             setExistingRegistration(null);
             onSave();
+        }).catch(err => {
+            window.alert(err.message);
         });
     };
 
@@ -205,6 +213,14 @@ function RegistrationForm({ classes, onSave, editing }) {
             lastNameRef.current?.focus();
         }
     };
+
+    if (!registrationOpen) {
+        return (
+            <div className="alert alert-secondary mb-4" role="status">
+                Registrations are closed at this time
+            </div>
+        );
+    }
 
     return (
         <form onSubmit={submit} className="mb-4">

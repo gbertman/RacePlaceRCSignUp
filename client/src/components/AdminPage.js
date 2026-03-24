@@ -1,24 +1,66 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
+import useAdminSession from '../hooks/useAdminSession';
 
 function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegistrationsChanged }) {
     const [drivers, setDrivers] = useState([]);
     const [isDriverModalOpen, setDriverModalOpen] = useState(false);
     const [newDriverFirst, setNewDriverFirst] = useState('');
     const [newDriverLast, setNewDriverLast] = useState('');
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const driverModalRef = useRef(null);
+    const trackNames = trackTypes.map(track => track.name);
+    const {
+        fetchAdmin,
+        isAdministrator,
+        isAuthenticated,
+        isCheckingAuth,
+        login: loginAdmin,
+        logout: logoutAdmin,
+        readError,
+    } = useAdminSession();
 
     const entries = Object.entries(registrations).map(([key, registration]) => ({
         key,
         ...registration,
     }));
 
-    const downloadCsv = async () => {
+    const login = async (e) => {
+        e.preventDefault();
+        setIsLoggingIn(true);
+
         try {
-            const response = await fetch('/download');
+            await loginAdmin(username, password);
+            setPassword('');
+        } catch (error) {
+            window.alert(error.message);
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await logoutAdmin();
+        } catch (error) {
+            console.error('Unable to log out cleanly:', error);
+        } finally {
+            setDriverModalOpen(false);
+            setDrivers([]);
+        }
+    };
+
+    const downloadCsv = async (trackName) => {
+        try {
+            const path = trackName
+                ? `/download/${encodeURIComponent(trackName)}`
+                : '/download';
+            const response = await fetchAdmin(path);
             if (!response.ok) {
-                throw new Error(`Download failed with status ${response.status}`);
+                throw new Error(await readError(response, `Download failed with status ${response.status}`));
             }
 
             const blob = await response.blob();
@@ -39,11 +81,11 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         }
     };
 
-    const loadDrivers = async () => {
+    const loadDrivers = useCallback(async () => {
         try {
-            const response = await fetch('/drivers');
+            const response = await fetchAdmin('/drivers');
             if (!response.ok) {
-                throw new Error(`Failed to load drivers: ${response.status}`);
+                throw new Error(await readError(response, `Failed to load drivers: ${response.status}`));
             }
             const data = await response.json();
             setDrivers(Array.isArray(data) ? data : []);
@@ -51,17 +93,39 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             console.error('Unable to load drivers:', error);
             setDrivers([]);
         }
+    }, [fetchAdmin, readError]);
+
+    const updateTrackEnabled = async (name, enabled) => {
+        const updatedTrackTypes = trackTypes.map(track =>
+            track.name === name ? { ...track, enabled } : track
+        );
+
+        try {
+            const response = await fetchAdmin('/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trackTypes: updatedTrackTypes }),
+            });
+
+            if (!response.ok) {
+                throw new Error(await readError(response, `Failed to save tracks: ${response.status}`));
+            }
+
+            if (onClassesSaved) onClassesSaved();
+        } catch (error) {
+            window.alert(`Unable to update track availability: ${error.message}`);
+        }
     };
 
     useEffect(() => {
-        if (isDriverModalOpen) {
+        if (isDriverModalOpen && isAuthenticated) {
             loadDrivers();
             setTimeout(() => {
                 const first = driverModalRef.current?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
                 first?.focus();
             }, 0);
         }
-    }, [isDriverModalOpen]);
+    }, [isDriverModalOpen, isAuthenticated, loadDrivers]);
 
     const addDriver = async () => {
         if (!newDriverFirst.trim() || !newDriverLast.trim()) {
@@ -70,13 +134,13 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         }
 
         try {
-            const response = await fetch('/drivers', {
+            const response = await fetchAdmin('/drivers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ firstName: newDriverFirst.trim(), lastName: newDriverLast.trim() }),
             });
             if (!response.ok) {
-                throw new Error(`Failed to add driver: ${response.status}`);
+                throw new Error(await readError(response, `Failed to add driver: ${response.status}`));
             }
             setNewDriverFirst('');
             setNewDriverLast('');
@@ -90,12 +154,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         if (!window.confirm(`Delete driver "${firstName} ${lastName}"?`)) return;
 
         try {
-            const response = await fetch(
+            const response = await fetchAdmin(
                 `/drivers?firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`,
                 { method: 'DELETE' }
             );
             if (!response.ok) {
-                throw new Error(`Failed to delete driver: ${response.status}`);
+                throw new Error(await readError(response, `Failed to delete driver: ${response.status}`));
             }
             loadDrivers();
         } catch (error) {
@@ -105,9 +169,9 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
 
     const backupData = async () => {
         try {
-            const response = await fetch('/backup');
+            const response = await fetchAdmin('/backup');
             if (!response.ok) {
-                throw new Error(`Backup failed with status ${response.status}`);
+                throw new Error(await readError(response, `Backup failed with status ${response.status}`));
             }
 
             const blob = await response.blob();
@@ -135,13 +199,13 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         try {
             const text = await file.text();
             const json = JSON.parse(text);
-            const response = await fetch('/restore', {
+            const response = await fetchAdmin('/restore', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(json),
             });
             if (!response.ok) {
-                throw new Error(`Restore failed with status ${response.status}`);
+                throw new Error(await readError(response, `Restore failed with status ${response.status}`));
             }
             if (onClassesSaved) onClassesSaved();
             if (onRegistrationsChanged) onRegistrationsChanged();
@@ -160,8 +224,13 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
 
     const resetAll = () => {
         if (window.confirm('Clear all registrations? This cannot be undone.')) {
-            fetch('/reset', { method: 'POST' }).then(() => {
+            fetchAdmin('/reset', { method: 'POST' }).then(async response => {
+                if (!response.ok) {
+                    throw new Error(await readError(response, `Reset failed with status ${response.status}`));
+                }
                 if (onRegistrationsChanged) onRegistrationsChanged();
+            }).catch(error => {
+                window.alert(`Unable to reset registrations: ${error.message}`);
             });
         }
     };
@@ -172,12 +241,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         }
 
         try {
-            const response = await fetch(`/registrations/${encodeURIComponent(name)}`, {
+            const response = await fetchAdmin(`/registrations/${encodeURIComponent(name)}`, {
                 method: 'DELETE',
             });
 
             if (!response.ok) {
-                throw new Error(`Delete failed with status ${response.status}`);
+                throw new Error(await readError(response, `Delete failed with status ${response.status}`));
             }
 
             if (onRegistrationsChanged) onRegistrationsChanged();
@@ -232,25 +301,99 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         win.print();
     };
 
+    if (isCheckingAuth) {
+        return <p className="text-muted">Checking admin login...</p>;
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="row justify-content-center">
+                <div className="col-md-6 col-lg-5">
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h4 className="mb-0">Admin Login</h4>
+                        <Link className="btn btn-outline-secondary" to="/">Back to Signup</Link>
+                    </div>
+                    <div className="card shadow-sm">
+                        <div className="card-body">
+                            <p className="text-muted">
+                                Sign in to access admin tools.
+                            </p>
+                            <form onSubmit={login}>
+                                <div className="mb-3">
+                                    <label className="form-label" htmlFor="admin-username">Username</label>
+                                    <input
+                                        id="admin-username"
+                                        className="form-control"
+                                        value={username}
+                                        onChange={e => setUsername(e.target.value)}
+                                        autoComplete="username"
+                                    />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label" htmlFor="admin-password">Password</label>
+                                    <input
+                                        id="admin-password"
+                                        type="password"
+                                        className="form-control"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        autoComplete="current-password"
+                                    />
+                                </div>
+                                <button type="submit" className="btn btn-primary" disabled={isLoggingIn}>
+                                    {isLoggingIn ? 'Signing In...' : 'Sign In'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h4 className="mb-0">Admin</h4>
-                <Link className="btn btn-outline-secondary" to="/">Back to Signup</Link>
+                <div className="d-flex gap-2">
+                    {isAdministrator ? (
+                        <Link className="btn btn-outline-primary" to="/admin/users">
+                            User Management
+                        </Link>
+                    ) : null}
+                    <button className="btn btn-outline-danger" onClick={logout}>
+                        Log Out
+                    </button>
+                    <Link className="btn btn-outline-secondary" to="/">Back to Signup</Link>
+                </div>
             </div>
             <div className="mb-4">
-                <button className="btn btn-secondary me-2" onClick={downloadCsv}>
-                    Download CSV
-                </button>
-                <button className="btn btn-secondary me-2" onClick={() => setDriverModalOpen(true)}>
-                    Driver List
-                </button>
-                <button className="btn btn-success me-2" onClick={printSheet}>
-                    Print Spreadsheet
-                </button>
-                <button className="btn btn-danger" onClick={resetAll}>
-                    Reset All
-                </button>
+                <div className="mb-2">
+                    <button className="btn btn-secondary me-2" onClick={() => setDriverModalOpen(true)}>
+                        Driver List
+                    </button>
+                    <button className="btn btn-success me-2" onClick={printSheet}>
+                        Print Spreadsheet
+                    </button>
+                    <button className="btn btn-danger" onClick={resetAll}>
+                        Reset All
+                    </button>
+                </div>
+                <div className="mt-4">
+                    <h5 className="mb-3">Download Race Registrations</h5>
+                    <button className="btn btn-secondary me-2" onClick={() => downloadCsv()}>
+                        Download All CSV
+                    </button>
+                    {trackNames.map(trackName => (
+                        <button
+                            key={trackName}
+                            className="btn btn-outline-secondary me-2 mt-2 mt-sm-0"
+                            onClick={() => downloadCsv(trackName)}
+                        >
+                            {trackName} CSV
+                        </button>
+                    ))}
+                </div>
                 <input
                     ref={restoreInputRef}
                     type="file"
@@ -288,7 +431,37 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                     </ul>
                 )}
             </div>
-            <ClassEditor classes={classes} trackTypes={trackTypes} onSave={onClassesSaved} />
+            <div className="mb-4">
+                <h5>Track Availability</h5>
+                {trackTypes.length === 0 ? (
+                    <p className="text-muted mb-0">No tracks configured.</p>
+                ) : (
+                    <div className="row g-3">
+                        {trackTypes.map(track => (
+                            <div key={track.name} className="col-sm-6 col-lg-4">
+                                <label className="border rounded p-3 h-100 w-100 d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div>{track.name}</div>
+                                        <div className="text-muted small">
+                                            {track.enabled ? 'Open for registration' : 'Closed on the signup page'}
+                                        </div>
+                                    </div>
+                                    <div className="form-check form-switch mb-0">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            role="switch"
+                                            checked={track.enabled}
+                                            onChange={e => updateTrackEnabled(track.name, e.target.checked)}
+                                        />
+                                    </div>
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <ClassEditor classes={classes} trackTypes={trackNames} onSave={onClassesSaved} />
             <div className="mt-4">
                 <h4>Maintenance</h4>
                 <button className="btn btn-secondary me-2" onClick={backupData}>

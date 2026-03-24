@@ -1,18 +1,22 @@
 [
   {
     "name": "LMH",
-    "type": "On-Road"
+    "type": "On Road"
   },
   {
     "name": "GT12",
-    "type": "On-Road"
+    "type": "On Road"
   },
   {
     "name": "Sportsman Buggy",
-    "type": "Off-Road"
+    "type": "Off Road"
   },
   {
     "name": "Expert Buggy",
-    "type": "Off-Road"
+    "type": "Off Road"
+  },
+  {
+    "name": "Full Speed",
+    "type": "Mini-Z"
   }
 ]

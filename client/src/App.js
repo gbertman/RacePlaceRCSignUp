@@ -6,6 +6,7 @@ import './App.css';
 import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
 import AdminPage from './components/AdminPage';
+import UserManagementPage from './components/UserManagementPage';
 import NotFoundPage from './components/NotFoundPage';
 import racePlaceLogo from './assets/race-place-rc-logo.svg';
 
@@ -14,6 +15,8 @@ function App() {
     const [trackTypes, setTrackTypes] = useState([]);
     const [registrations, setRegistrations] = useState({});
     const [editing, setEditing] = useState(null); // name being edited
+    const enabledTrackTypes = trackTypes.filter(track => track.enabled).map(track => track.name);
+    const registrationClasses = classes.filter(item => enabledTrackTypes.includes(item.type));
 
     const fetchClasses = () => {
         fetch('/classes')
@@ -73,7 +76,8 @@ function App() {
                         element={
                             <>
                                 <RegistrationForm
-                                    classes={classes}
+                                    classes={registrationClasses}
+                                    registrationOpen={enabledTrackTypes.length > 0}
                                     onSave={() => {
                                         fetchRegistrations();
                                         setEditing(null);
@@ -99,6 +103,7 @@ function App() {
                             />
                         }
                     />
+                    <Route path="/admin/users" element={<UserManagementPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>

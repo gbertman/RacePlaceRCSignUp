@@ -1,4 +1,14 @@
 [
-  "On-Road",
-  "Off-Road"
+  {
+    "name": "On Road",
+    "enabled": true
+  },
+  {
+    "name": "Off Road",
+    "enabled": true
+  },
+  {
+    "name": "Mini-Z",
+    "enabled": false
+  }
 ]
