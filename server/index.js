@@ -38,12 +38,10 @@ const TRACK_TYPE_ALIASES = {
     'off road': 'Off Road',
 };
 
-// ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
 }
 
-// ensure driver list file exists
 if (!fs.existsSync(DRIVERS_FILE)) {
     fs.writeFileSync(DRIVERS_FILE, JSON.stringify([], null, 2), 'utf8');
 }
@@ -52,7 +50,6 @@ if (!fs.existsSync(USERS_FILE)) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_ADMIN_USER], null, 2), 'utf8');
 }
 
-// read classes from file; format is JSON array of { name, type }
 function readClasses() {
     if (!fs.existsSync(CLASSES_FILE)) return [];
     try {
@@ -66,7 +63,6 @@ function readClasses() {
     }
 }
 
-// save classes array to file
 function saveClasses(list) {
     const normalized = list.map(item => ({
         ...item,
@@ -75,7 +71,6 @@ function saveClasses(list) {
     fs.writeFileSync(CLASSES_FILE, JSON.stringify(normalized, null, 2), 'utf8');
 }
 
-// read registrations JSON, returns object keyed by name
 function readRegistrations() {
     if (!fs.existsSync(REG_FILE)) return {};
     const txt = fs.readFileSync(REG_FILE, 'utf8');
@@ -674,7 +669,6 @@ app.get('/download/:trackName', requireAuthenticated, (req, res) => {
     res.send(csv);
 });
 
-// clear all registrations
 app.post('/reset', requireAuthenticated, (req, res) => {
     saveRegistrations({});
     broadcastRegistrationsUpdated();
@@ -687,7 +681,6 @@ if (isProduction) {
 
     app.use(express.static(buildDir));
 
-    // catch-all handler for client-side routing (use generic middleware, not path-to-regexp)
     app.use((req, res, next) => {
         if (!fs.existsSync(indexFile)) {
             return next(new Error(`Missing production build file: ${indexFile}`));
@@ -701,5 +694,3 @@ const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
-
-
