@@ -83,8 +83,9 @@ function readRegistrations() {
                     {
                         ...value,
                         name,
-                        firstName: value.firstName || firstName,
-                        lastName: value.lastName || lastNameParts.join(' '),
+                        firstName,
+                        lastName: lastNameParts.join(' '),
+                        registeredAt: value.registeredAt,
                     },
                 ];
             })
@@ -661,6 +662,7 @@ app.post('/register', (req, res) => {
     }
 
     const regs = readRegistrations();
+    const existingRegistration = regs[originalName] || regs[name];
     if (originalName && originalName !== name && regs[originalName]) {
         delete regs[originalName];
     }
@@ -669,6 +671,7 @@ app.post('/register', (req, res) => {
         firstName: normalizedFirstName,
         lastName: normalizedLastName,
         classes: classes || [],
+        registeredAt: existingRegistration?.registeredAt || new Date().toISOString(),
     };
     saveRegistrations(regs);
     addDriverIfMissing(normalizedFirstName, normalizedLastName);

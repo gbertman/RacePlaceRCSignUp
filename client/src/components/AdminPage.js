@@ -28,6 +28,11 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         ...registration,
     }));
 
+    const formatRegistrationDate = (value) => {
+        const date = new Date(value);
+        return date.toLocaleDateString();
+    };
+
     const login = async (e) => {
         e.preventDefault();
         setIsLoggingIn(true);
@@ -376,7 +381,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                         Print Spreadsheet
                     </button>
                     <button className="btn btn-danger" onClick={resetAll}>
-                        Reset All
+                        Reset Registrations
                     </button>
                 </div>
                 <div className="mt-4">
@@ -419,6 +424,9 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                                 <div>
                                     <div>{r.name}</div>
                                     <div className="text-muted small">{r.classes.join(', ')}</div>
+                                    <div className="text-muted small">
+                                        Registered: {formatRegistrationDate(r.registeredAt)}
+                                    </div>
                                 </div>
                                 <button
                                     className="btn btn-outline-danger btn-sm"
