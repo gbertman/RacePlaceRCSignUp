@@ -18,12 +18,16 @@ function ClassEditor({ classes, trackTypes, onSave }) {
     }, [trackTypes, newType]);
 
     const add = () => {
-        if (newName.trim()) {
-            setItems([...items, { name: newName.trim(), type: newType }]);
-            setNewName('');
-            if (inputRef.current) {
-                setTimeout(() => inputRef.current.focus(), 0);
-            }
+        const trimmed = newName.trim();
+        if (!trimmed) return;
+        if (items.some(item => item.name.toLowerCase() === trimmed.toLowerCase())) {
+            alert(`A class named "${trimmed}" already exists.`);
+            return;
+        }
+        setItems([...items, { name: trimmed, type: newType }]);
+        setNewName('');
+        if (inputRef.current) {
+            setTimeout(() => inputRef.current.focus(), 0);
         }
     };
 

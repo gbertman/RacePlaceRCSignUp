@@ -28,8 +28,24 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         ...registration,
     }));
 
+    const classCounts = entries.reduce((counts, r) => {
+        (r.classes || []).forEach(name => {
+            counts[name] = (counts[name] || 0) + 1;
+        });
+        return counts;
+    }, {});
+
+    const classesByType = classes.reduce((groups, c) => {
+        const type = c.type || 'Other';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(c);
+        return groups;
+    }, {});
+
     const formatRegistrationDate = (value) => {
+        if (!value) return '—';
         const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
         return date.toLocaleDateString();
     };
 
@@ -409,6 +425,30 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                         if (file) restoreData(file);
                     }}
                 />
+            </div>
+            <div className="mb-4">
+                <h5>Class Counts</h5>
+                {classes.length === 0 ? (
+                    <p className="text-muted mb-0">No classes configured.</p>
+                ) : (
+                    <div className="row g-3">
+                        {Object.entries(classesByType).map(([type, group]) => (
+                            <div key={type} className="col-sm-6 col-lg-4">
+                                <div className="border rounded p-3 h-100">
+                                    <div className="fw-bold mb-2">{type}</div>
+                                    <ul className="list-unstyled mb-0">
+                                        {group.map(c => (
+                                            <li key={c.name} className="d-flex justify-content-between align-items-center py-1">
+                                                <span>{c.name}</span>
+                                                <span className="badge bg-secondary rounded-pill">{classCounts[c.name] || 0}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="mb-4">
                 <h5>Current Registrants</h5>

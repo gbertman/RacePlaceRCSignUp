@@ -86,6 +86,7 @@ function App() {
                                 />
                                 <RegistrationList
                                     registrations={registrations}
+                                    classes={registrationClasses}
                                     onEdit={name => setEditing(name)}
                                 />
                             </>

@@ -22,3 +22,8 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# SQLite database
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
