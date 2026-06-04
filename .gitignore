@@ -27,3 +27,9 @@ yarn-error.log*
 server/data/*.sqlite
 server/data/*.sqlite-shm
 server/data/*.sqlite-wal
+
+# Local data / seed files (real classes, drivers, registrations, users) — keep private
+server/data/*.json
+
+# Restore/upload payload (real classes, drivers, registrations) — keep private
+raceplace-restore.json
