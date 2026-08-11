@@ -5,6 +5,8 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
+const multer = require('multer');
+const OpenAI = require('openai');
 const path = require('path');
 const Database = require('better-sqlite3');
 const { Server } = require('socket.io');
@@ -35,6 +37,17 @@ const DEFAULT_ADMIN_USER = {
 };
 const ADMIN_COOKIE_NAME = 'raceplace_admin_session';
 const adminSessions = new Map();
+const sheetUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024,
+        files: 1,
+    },
+    fileFilter: (req, file, callback) => {
+        const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+        callback(allowedTypes.has(file.mimetype) ? null : new Error('Upload a JPEG, PNG, or WebP image'), allowedTypes.has(file.mimetype));
+    },
+});
 
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
@@ -368,6 +381,37 @@ function replaceAllRegistrations(regs) {
     transaction(regs);
 }
 
+function replaceDriversAndRegistrations(drivers, regs) {
+    const insertDriver = db.prepare(
+        'INSERT OR IGNORE INTO drivers (firstName, lastName) VALUES (?, ?)'
+    );
+    const insertRegistration = db.prepare(
+        'INSERT OR REPLACE INTO registrations (name, firstName, lastName, registeredAt, classes) VALUES (?, ?, ?, ?, ?)'
+    );
+    const transaction = db.transaction(() => {
+        db.prepare('DELETE FROM drivers').run();
+        for (const driver of drivers) {
+            const firstName = (driver?.firstName || '').trim();
+            const lastName = (driver?.lastName || '').trim();
+            if (firstName && lastName) {
+                insertDriver.run(firstName, lastName);
+            }
+        }
+
+        db.prepare('DELETE FROM registrations').run();
+        for (const [name, value] of Object.entries(regs)) {
+            insertRegistration.run(
+                name,
+                value.firstName || '',
+                value.lastName || '',
+                value.registeredAt || new Date().toISOString(),
+                JSON.stringify(value.classes || [])
+            );
+        }
+    });
+    transaction();
+}
+
 function normalizeUser(user) {
     const username = (user?.username || '').trim();
     const password = String(user?.password || '');
@@ -564,6 +608,224 @@ function buildRegistrationCsv(trackName) {
 
 initializeDatabase();
 
+function normalizeMatchText(value) {
+    return String(value || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+}
+
+function levenshteinDistance(left, right) {
+    const a = normalizeMatchText(left);
+    const b = normalizeMatchText(right);
+    const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+
+    for (let row = 1; row <= a.length; row += 1) {
+        const current = [row];
+        for (let column = 1; column <= b.length; column += 1) {
+            current[column] = Math.min(
+                current[column - 1] + 1,
+                previous[column] + 1,
+                previous[column - 1] + (a[row - 1] === b[column - 1] ? 0 : 1)
+            );
+        }
+        previous.splice(0, previous.length, ...current);
+    }
+
+    return previous[b.length];
+}
+
+function driverSimilarity(candidateName, driver) {
+    const forward = `${driver.firstName} ${driver.lastName}`;
+    const reverse = `${driver.lastName} ${driver.firstName}`;
+    const candidate = normalizeMatchText(candidateName);
+    const distance = Math.min(
+        levenshteinDistance(candidate, forward),
+        levenshteinDistance(candidate, reverse)
+    );
+    const length = Math.max(candidate.length, normalizeMatchText(forward).length, 1);
+    return Math.max(0, 1 - (distance / length));
+}
+
+function findDriverSuggestions(firstName, lastName, rawName, drivers) {
+    const candidateName = `${firstName || ''} ${lastName || ''}`.trim() || rawName;
+    return drivers
+        .map(driver => ({
+            firstName: driver.firstName,
+            lastName: driver.lastName,
+            similarity: driverSimilarity(candidateName, driver),
+        }))
+        .filter(driver => driver.similarity >= 0.55)
+        .sort((left, right) => right.similarity - left.similarity)
+        .slice(0, 3);
+}
+
+function buildSheetExtractionSchema(classNames, trackName) {
+    const classSelection = {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            className: { type: 'string', enum: classNames },
+            selected: { type: 'boolean' },
+            confidence: { type: 'number' },
+        },
+        required: ['className', 'selected', 'confidence'],
+    };
+
+    return {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            trackName: { type: 'string', enum: [trackName] },
+            rows: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        rowNumber: { type: 'integer' },
+                        rawName: { type: 'string' },
+                        firstName: { type: 'string' },
+                        lastName: { type: 'string' },
+                        nameConfidence: { type: 'number' },
+                        classSelections: {
+                            type: 'array',
+                            items: classSelection,
+                        },
+                        notes: { type: 'string' },
+                    },
+                    required: [
+                        'rowNumber',
+                        'rawName',
+                        'firstName',
+                        'lastName',
+                        'nameConfidence',
+                        'classSelections',
+                        'notes',
+                    ],
+                },
+            },
+        },
+        required: ['trackName', 'rows'],
+    };
+}
+
+async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, raceClasses, drivers }) {
+    if (!process.env.OPENAI_API_KEY) {
+        const error = new Error('Set OPENAI_API_KEY on the server to enable GPT sheet scanning');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    const classNames = raceClasses.map(item => item.name);
+    const driverNames = drivers.map(driver => `${driver.firstName} ${driver.lastName}`);
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const prompt = [
+        'Read this photographed RacePlaceRC registration sheet.',
+        `The verified track is: ${trackName}.`,
+        `The race columns, in printed order, are: ${classNames.map((name, index) => `C${index + 1}=${name}`).join('; ')}.`,
+        `Known driver names are: ${driverNames.length ? driverNames.join('; ') : '(none)'}.`,
+        'Return only non-empty handwritten racer rows.',
+        'Names may be written first-last or last-first. Use known drivers only as spelling evidence, never invent a person.',
+        'Preserve an unknown handwritten name as closely as possible and split it into likely firstName and lastName.',
+        'For every returned row, include every supplied race class once, in order, with selected true only for a clear handwritten mark in that cell.',
+        'Confidence values must be between 0 and 1. Use notes for ambiguity, crossed-out rows, or unclear marks.',
+    ].join('\n');
+
+    const response = await client.responses.create({
+        model: process.env.OPENAI_VISION_MODEL || 'gpt-5.6-terra',
+        store: false,
+        input: [
+            {
+                role: 'user',
+                content: [
+                    { type: 'input_text', text: prompt },
+                    {
+                        type: 'input_image',
+                        image_url: `data:${mimeType};base64,${imageBuffer.toString('base64')}`,
+                        detail: 'high',
+                    },
+                ],
+            },
+        ],
+        text: {
+            format: {
+                type: 'json_schema',
+                name: 'race_registration_sheet',
+                strict: true,
+                schema: buildSheetExtractionSchema(classNames, trackName),
+            },
+        },
+    });
+
+    if (!response.output_text) {
+        throw new Error('GPT did not return registration sheet data');
+    }
+
+    return JSON.parse(response.output_text);
+}
+
+function prepareSheetRows(extraction, raceClasses, drivers) {
+    const availableClassNames = new Set(raceClasses.map(item => item.name));
+
+    return (Array.isArray(extraction?.rows) ? extraction.rows : [])
+        .filter(row => row && String(row.rawName || `${row.firstName || ''} ${row.lastName || ''}`).trim())
+        .map((row, index) => {
+            const firstName = String(row.firstName || '').trim();
+            const lastName = String(row.lastName || '').trim();
+            const rawName = String(row.rawName || `${firstName} ${lastName}`).trim();
+            const suggestions = findDriverSuggestions(firstName, lastName, rawName, drivers);
+            const bestSuggestion = suggestions[0];
+            const runnerUp = suggestions[1];
+            const hasClearMatch = bestSuggestion?.similarity >= 0.88 &&
+                (!runnerUp || bestSuggestion.similarity - runnerUp.similarity >= 0.08);
+            const classes = (Array.isArray(row.classSelections) ? row.classSelections : [])
+                .filter(item => item?.selected && availableClassNames.has(item.className))
+                .map(item => item.className);
+            const lowConfidenceMarks = (Array.isArray(row.classSelections) ? row.classSelections : [])
+                .filter(item => item?.selected && Number(item.confidence) < 0.7)
+                .map(item => item.className);
+            const warnings = [];
+
+            if (Number(row.nameConfidence) < 0.75) warnings.push('Check the handwritten name');
+            if (lowConfidenceMarks.length) warnings.push(`Check race marks: ${lowConfidenceMarks.join(', ')}`);
+            if (!classes.length) warnings.push('No race class was selected');
+            if (!firstName || !lastName) warnings.push('First and last name are required');
+
+            return {
+                id: crypto.randomUUID(),
+                rowNumber: Number.isInteger(row.rowNumber) ? row.rowNumber : index + 1,
+                rawName,
+                firstName: hasClearMatch ? bestSuggestion.firstName : firstName,
+                lastName: hasClearMatch ? bestSuggestion.lastName : lastName,
+                nameConfidence: Math.max(0, Math.min(1, Number(row.nameConfidence) || 0)),
+                classes: [...new Set(classes)],
+                existingDriver: hasClearMatch ? {
+                    firstName: bestSuggestion.firstName,
+                    lastName: bestSuggestion.lastName,
+                } : null,
+                suggestions,
+                isNewDriver: !hasClearMatch,
+                included: true,
+                notes: String(row.notes || '').trim(),
+                warnings,
+            };
+        });
+}
+
+function uploadRegistrationSheet(req, res, next) {
+    sheetUpload.single('sheet')(req, res, error => {
+        if (!error) return next();
+        const message = error.code === 'LIMIT_FILE_SIZE'
+            ? 'The sheet image must be 10 MB or smaller'
+            : error.message;
+        res.status(400).json({ error: message });
+    });
+}
+
 app.get('/classes', (req, res) => {
     res.json(readClasses());
 });
@@ -713,13 +975,25 @@ app.post('/track', requireAuthenticated, (req, res) => {
 });
 
 app.get('/drivers', (req, res) => {
-    if (!req.query.lastName && !isAuthenticated(req)) {
+    const name = (req.query.name || '').trim().toLowerCase();
+    const lastName = (req.query.lastName || '').trim().toLowerCase();
+
+    if (!name && !lastName && !isAuthenticated(req)) {
         return res.status(401).json({ error: 'Admin login required' });
     }
 
-    const lastName = (req.query.lastName || '').trim();
+    const drivers = readDrivers();
+    if (name) {
+        const terms = name.split(/\s+/);
+        const matches = drivers.filter(driver => {
+            const nameParts = [driver.firstName, driver.lastName]
+                .map(part => (part || '').trim().toLowerCase());
+            return terms.every(term => nameParts.some(part => part.includes(term)));
+        });
+        return res.json(matches);
+    }
     if (!lastName) {
-        return res.json(readDrivers());
+        return res.json(drivers);
     }
     res.json(findDriversByLastName(lastName));
 });
@@ -741,6 +1015,136 @@ app.delete('/drivers', requireAuthenticated, (req, res) => {
     }
     deleteDriverByName(firstName, lastName);
     res.json({ success: true });
+});
+
+app.post(
+    '/admin/sheet-import/analyze',
+    requireAuthenticated,
+    uploadRegistrationSheet,
+    async (req, res) => {
+        const trackName = String(req.body?.trackName || '').trim();
+        const track = readTrackTypes().find(item => item.name === trackName && item.enabled);
+        const raceClasses = readClasses().filter(item => item.type === trackName);
+
+        if (!track || raceClasses.length === 0) {
+            return res.status(400).json({ error: 'Select an open track with configured race classes' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'Take or select a registration sheet photo' });
+        }
+
+        try {
+            const drivers = readDrivers();
+            const extraction = await analyzeRegistrationSheet({
+                imageBuffer: req.file.buffer,
+                mimeType: req.file.mimetype,
+                trackName,
+                raceClasses,
+                drivers,
+            });
+            const rows = prepareSheetRows(extraction, raceClasses, drivers);
+            res.json({
+                trackName,
+                raceClasses,
+                rows,
+                model: process.env.OPENAI_VISION_MODEL || 'gpt-5.6-terra',
+            });
+        } catch (error) {
+            console.error('Unable to analyze registration sheet:', error);
+            const statusCode = error.statusCode === 503
+                ? 503
+                : (error.status === 429 ? 429 : 502);
+            res.status(statusCode).json({ error: error.message || 'Unable to analyze registration sheet' });
+        }
+    }
+);
+
+app.post('/admin/sheet-import/commit', requireAuthenticated, (req, res) => {
+    const trackName = String(req.body?.trackName || '').trim();
+    const rows = req.body?.rows;
+    const raceClasses = readClasses().filter(item => item.type === trackName);
+    const availableClassNames = new Set(raceClasses.map(item => item.name));
+
+    if (!trackName || raceClasses.length === 0) {
+        return res.status(400).json({ error: 'The selected track has no configured race classes' });
+    }
+    if (!Array.isArray(rows) || rows.length === 0 || rows.length > 100) {
+        return res.status(400).json({ error: 'Include between 1 and 100 verified racer rows' });
+    }
+
+    const verifiedRows = rows
+        .filter(row => row?.included !== false)
+        .map(row => ({
+            firstName: String(row.firstName || '').trim().replace(/\s+/g, ' '),
+            lastName: String(row.lastName || '').trim().replace(/\s+/g, ' '),
+            classes: [...new Set(Array.isArray(row.classes) ? row.classes : [])],
+        }));
+
+    const invalidRow = verifiedRows.find(row =>
+        !row.firstName ||
+        !row.lastName ||
+        row.firstName.length > 80 ||
+        row.lastName.length > 80 ||
+        row.classes.length === 0 ||
+        row.classes.some(className => !availableClassNames.has(className))
+    );
+    if (invalidRow) {
+        return res.status(400).json({
+            error: 'Every included racer needs a valid first name, last name, and at least one race class',
+        });
+    }
+    if (verifiedRows.length === 0) {
+        return res.status(400).json({ error: 'Include at least one verified racer' });
+    }
+
+    try {
+        const registrations = readRegistrations();
+        const drivers = readDrivers();
+        let newDriverCount = 0;
+
+        verifiedRows.forEach(row => {
+            const submittedName = `${row.firstName} ${row.lastName}`;
+            const normalizedSubmittedName = normalizeMatchText(submittedName);
+            const existingDriver = drivers.find(driver =>
+                normalizeMatchText(`${driver.firstName} ${driver.lastName}`) === normalizedSubmittedName
+            );
+            const canonicalFirstName = existingDriver?.firstName || row.firstName;
+            const canonicalLastName = existingDriver?.lastName || row.lastName;
+            const canonicalName = `${canonicalFirstName} ${canonicalLastName}`;
+
+            if (!existingDriver) {
+                drivers.push({ firstName: canonicalFirstName, lastName: canonicalLastName });
+                newDriverCount += 1;
+            }
+
+            const existingKey = Object.keys(registrations).find(key =>
+                normalizeMatchText(key) === normalizeMatchText(canonicalName)
+            );
+            const existingRegistration = existingKey ? registrations[existingKey] : null;
+            if (existingKey && existingKey !== canonicalName) {
+                delete registrations[existingKey];
+            }
+            registrations[canonicalName] = {
+                name: canonicalName,
+                firstName: canonicalFirstName,
+                lastName: canonicalLastName,
+                classes: [...new Set([...(existingRegistration?.classes || []), ...row.classes])],
+                registeredAt: existingRegistration?.registeredAt || new Date().toISOString(),
+            };
+        });
+
+        replaceDriversAndRegistrations(drivers, registrations);
+        broadcastRegistrationsUpdated();
+        res.json({
+            success: true,
+            importedCount: verifiedRows.length,
+            newDriverCount,
+            downloadUrl: `/download/${encodeURIComponent(trackName)}`,
+        });
+    } catch (error) {
+        console.error('Unable to import verified registration sheet:', error);
+        res.status(500).json({ error: 'Unable to save the verified registration sheet' });
+    }
 });
 
 app.get('/backup', requireAuthenticated, (req, res) => {
@@ -893,6 +1297,16 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-});
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`Server started on port ${PORT}`);
+    });
+}
+
+module.exports = {
+    app,
+    buildSheetExtractionSchema,
+    normalizeMatchText,
+    prepareSheetRows,
+    server,
+};

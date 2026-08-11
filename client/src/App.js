@@ -6,6 +6,7 @@ import './App.css';
 import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
 import AdminPage from './components/AdminPage';
+import SheetImportPage from './components/SheetImportPage';
 import UserManagementPage from './components/UserManagementPage';
 import NotFoundPage from './components/NotFoundPage';
 import racePlaceLogo from './assets/race-place-rc-logo.svg';
@@ -105,6 +106,16 @@ function App() {
                         }
                     />
                     <Route path="/admin/users" element={<UserManagementPage />} />
+                    <Route
+                        path="/admin/sheet-import"
+                        element={
+                            <SheetImportPage
+                                classes={classes}
+                                trackTypes={trackTypes}
+                                onRegistrationsChanged={fetchRegistrations}
+                            />
+                        }
+                    />
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>

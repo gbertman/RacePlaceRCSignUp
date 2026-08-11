@@ -9,6 +9,7 @@ This repository contains a full-stack web application for signing up for RC raci
 - Edit an existing signup by clicking the racer's name
 - Download the registration list as a CSV (`FirstName,LastName,ClassName,IsPaid`) named `YYYY-MM-DD Race Registrations.csv`
 - Admin tools for reset, CSV download, printing, driver management, maintenance backup/restore, and class editing live on `/admin`
+- Admins can print scan-friendly sheets per track, photograph them from a phone, verify GPT-extracted names and race marks, and import the approved racers
 - Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via the `/admin` screen. Track types come from `server/data/track.json`, and class grouping in the UI follows those values dynamically.
 - Data persists to files on the server so it survives restarts
 
@@ -28,6 +29,27 @@ This repository contains a full-stack web application for signing up for RC raci
 - **socket.io-client**: listens for live server updates in the signup and admin screens
 
 No additional external APIs are required; all data is served locally.
+
+### GPT-assisted sheet scanning
+
+The scan workflow uses the OpenAI Responses API with image input and Structured Outputs. Set the API key on the server before starting the application:
+
+```powershell
+$env:OPENAI_API_KEY='your-api-key'
+npm start
+```
+
+The default model is `gpt-5.6-terra`. Override it when needed:
+
+```powershell
+$env:OPENAI_VISION_MODEL='gpt-5.6-terra'
+```
+
+The API key must never be placed in the React client or committed to this repository. Sheet photographs are held in memory only for analysis and are not written to disk. GPT output is presented on a required verification page before registrations or new drivers are saved.
+
+- [OpenAI image and vision documentation](https://developers.openai.com/api/docs/guides/images-vision)
+- [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [Create and manage an OpenAI API key](https://platform.openai.com/api-keys)
 
 ## Getting Started
 

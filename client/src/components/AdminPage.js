@@ -11,8 +11,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [selectedScanTrack, setSelectedScanTrack] = useState('');
     const driverModalRef = useRef(null);
     const trackNames = trackTypes.map(track => track.name);
+    const printableTrackNames = trackTypes
+        .filter(track => track.enabled && classes.some(item => item.type === track.name))
+        .map(track => track.name);
     const {
         fetchAdmin,
         isAdministrator,
@@ -147,6 +151,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             }, 0);
         }
     }, [isDriverModalOpen, isAuthenticated, loadDrivers]);
+
+    useEffect(() => {
+        if (!printableTrackNames.includes(selectedScanTrack)) {
+            setSelectedScanTrack(printableTrackNames[0] || '');
+        }
+    }, [printableTrackNames, selectedScanTrack]);
 
     const addDriver = async () => {
         if (!newDriverFirst.trim() || !newDriverLast.trim()) {
@@ -322,6 +332,163 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         win.print();
     };
 
+    const printScanSheet = (requestedTrackName) => {
+        const trackPages = trackTypes
+            .filter(track => track.enabled && (!requestedTrackName || track.name === requestedTrackName))
+            .map(track => ({
+                trackName: track.name,
+                raceClasses: classes.filter(item => item.type === track.name),
+            }))
+            .filter(track => track.raceClasses.length > 0);
+
+        if (trackPages.length === 0) {
+            window.alert('Open at least one track with a race class before printing a scan sheet.');
+            return;
+        }
+
+        const win = window.open('', '_blank');
+        if (!win) {
+            window.alert('Allow pop-ups to print the scan-friendly registration sheet.');
+            return;
+        }
+
+        const document = win.document;
+        document.title = 'RacePlaceRC Scan Registration Sheet';
+
+        const style = document.createElement('style');
+        style.textContent = `
+            @page { size: letter landscape; margin: 0.35in; }
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #000; font-family: Arial, sans-serif; }
+            .sheet { position: relative; width: 100%; min-height: 7.65in; break-after: page; page-break-after: always; }
+            .sheet:last-child { break-after: auto; page-break-after: auto; }
+            .marker { position: absolute; width: 0.18in; height: 0.18in; background: #000; }
+            .marker-tl { top: 0; left: 0; }
+            .marker-tr { top: 0; right: 0; }
+            .marker-bl { bottom: 0; left: 0; }
+            .marker-br { right: 0; bottom: 0; }
+            h1 { margin: 0; text-align: center; font-size: 20pt; }
+            .metadata { display: flex; justify-content: space-between; margin: 0.08in 0 0.1in; font-size: 9pt; }
+            .instructions { margin: 0 0 0.1in; padding: 0.07in; border: 2px solid #000; font-size: 9pt; font-weight: 700; text-align: center; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            th, td { border: 2px solid #000; padding: 0.03in; }
+            .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.03in 0.08in; margin-bottom: 0.1in; font-size: 7.5pt; }
+            .legend-item { overflow: hidden; border: 1px solid #000; padding: 0.025in 0.04in; white-space: nowrap; text-overflow: ellipsis; }
+            .legend-code { margin-right: 0.05in; font-weight: 700; }
+            .signup { font-size: 8pt; }
+            .many-classes .signup { font-size: 7pt; }
+            .signup thead { display: table-header-group; }
+            .signup th { height: 0.34in; text-align: center; vertical-align: middle; }
+            .signup td { height: 0.27in; }
+            .row-number { width: 0.32in; text-align: center; font-weight: 700; }
+            .driver-name { width: 2.55in; text-align: left !important; font-size: 9pt; }
+            .many-classes .driver-name { width: 2.15in; }
+            .race-column { text-align: center; }
+            .mark-box { display: inline-block; width: 0.16in; height: 0.16in; border: 1.5px solid #000; vertical-align: middle; }
+            .footer { margin-top: 0.06in; font-size: 7pt; text-align: center; }
+        `;
+        document.head.appendChild(style);
+
+        trackPages.forEach(({ trackName, raceClasses }) => {
+            const sheet = document.createElement('main');
+            sheet.className = `sheet${raceClasses.length > 10 ? ' many-classes' : ''}`;
+
+            ['tl', 'tr', 'bl', 'br'].forEach(position => {
+                const marker = document.createElement('span');
+                marker.className = `marker marker-${position}`;
+                marker.setAttribute('aria-hidden', 'true');
+                sheet.appendChild(marker);
+            });
+
+            const heading = document.createElement('h1');
+            heading.textContent = `RacePlaceRC ${trackName} Registration Sheet`;
+            sheet.appendChild(heading);
+
+            const metadata = document.createElement('div');
+            metadata.className = 'metadata';
+            const date = document.createElement('span');
+            date.textContent = `Race date: ${new Date().toLocaleDateString()}`;
+            const template = document.createElement('span');
+            template.textContent = `Scan template: RP-RC-1 | Track: ${trackName}`;
+            metadata.append(date, template);
+            sheet.appendChild(metadata);
+
+            const instructions = document.createElement('p');
+            instructions.className = 'instructions';
+            instructions.textContent = 'PRINT ONE RACER NAME PER ROW. Write clearly inside the name box and make a large X inside every selected race box.';
+            sheet.appendChild(instructions);
+
+            const legend = document.createElement('div');
+            legend.className = 'legend';
+            raceClasses.forEach((raceClass, index) => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                const code = document.createElement('span');
+                code.className = 'legend-code';
+                code.textContent = `C${index + 1}:`;
+                const description = document.createElement('span');
+                description.textContent = raceClass.name;
+                item.append(code, description);
+                legend.appendChild(item);
+            });
+            sheet.appendChild(legend);
+
+            const signupTable = document.createElement('table');
+            signupTable.className = 'signup';
+            const signupHead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            const numberHeader = document.createElement('th');
+            numberHeader.className = 'row-number';
+            numberHeader.textContent = '#';
+            const nameHeader = document.createElement('th');
+            nameHeader.className = 'driver-name';
+            nameHeader.textContent = 'Racer Name (First Last or Last First)';
+            headerRow.append(numberHeader, nameHeader);
+            raceClasses.forEach((_, index) => {
+                const classHeader = document.createElement('th');
+                classHeader.className = 'race-column';
+                classHeader.textContent = `C${index + 1}`;
+                headerRow.appendChild(classHeader);
+            });
+            signupHead.appendChild(headerRow);
+            signupTable.appendChild(signupHead);
+
+            const signupBody = document.createElement('tbody');
+            for (let rowNumber = 1; rowNumber <= 20; rowNumber += 1) {
+                const row = document.createElement('tr');
+                const numberCell = document.createElement('td');
+                numberCell.className = 'row-number';
+                numberCell.textContent = rowNumber;
+                const nameCell = document.createElement('td');
+                nameCell.className = 'driver-name';
+                row.append(numberCell, nameCell);
+
+                raceClasses.forEach(() => {
+                    const raceCell = document.createElement('td');
+                    raceCell.className = 'race-column';
+                    const markBox = document.createElement('span');
+                    markBox.className = 'mark-box';
+                    markBox.setAttribute('aria-hidden', 'true');
+                    raceCell.appendChild(markBox);
+                    row.appendChild(raceCell);
+                });
+                signupBody.appendChild(row);
+            }
+            signupTable.appendChild(signupBody);
+            sheet.appendChild(signupTable);
+
+            const footer = document.createElement('div');
+            footer.className = 'footer';
+            footer.textContent = `RP-RC-1 | Track=${trackName} | ${raceClasses.map((raceClass, index) => `C${index + 1}=${raceClass.name}`).join(' | ')}`;
+            sheet.appendChild(footer);
+
+            document.body.appendChild(sheet);
+        });
+        document.close();
+        win.focus();
+        win.setTimeout(() => win.print(), 100);
+    };
+
     if (isCheckingAuth) {
         return <p className="text-muted">Checking admin login...</p>;
     }
@@ -396,9 +563,46 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                     <button className="btn btn-success me-2" onClick={printSheet}>
                         Print Spreadsheet
                     </button>
+                    <Link className="btn btn-primary me-2" to="/admin/sheet-import">
+                        Scan Registration Sheet
+                    </Link>
                     <button className="btn btn-danger" onClick={resetAll}>
                         Reset Registrations
                     </button>
+                </div>
+                <div className="row g-2 align-items-end mt-2">
+                    <div className="col-sm-5 col-md-4">
+                        <label className="form-label" htmlFor="scan-sheet-track">Scan-friendly sheet track</label>
+                        <select
+                            id="scan-sheet-track"
+                            className="form-select"
+                            value={selectedScanTrack}
+                            onChange={event => setSelectedScanTrack(event.target.value)}
+                            disabled={printableTrackNames.length === 0}
+                        >
+                            {printableTrackNames.length === 0 ? (
+                                <option value="">No printable tracks</option>
+                            ) : printableTrackNames.map(trackName => (
+                                <option key={trackName} value={trackName}>{trackName}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="col-sm-auto">
+                        <button
+                            className="btn btn-outline-success"
+                            onClick={() => printScanSheet(selectedScanTrack)}
+                            disabled={!selectedScanTrack}
+                        >
+                            Print Selected Track
+                        </button>
+                    </div>
+                    {printableTrackNames.length > 1 ? (
+                        <div className="col-sm-auto">
+                            <button className="btn btn-outline-secondary" onClick={() => printScanSheet()}>
+                                Print All Tracks
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
                 <div className="mt-4">
                     <h5 className="mb-3">Download Race Registrations</h5>

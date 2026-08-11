@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
+    const [nameInput, setNameInput] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [driverMatch, setDriverMatch] = useState(null);
     const [driverMatches, setDriverMatches] = useState([]);
-    const [showDriverModal, setShowDriverModal] = useState(false);
+    const [showDriverMatches, setShowDriverMatches] = useState(false);
+    const [activeDriverIndex, setActiveDriverIndex] = useState(-1);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [existingRegistration, setExistingRegistration] = useState(null);
     const [selected, setSelected] = useState([]);
-    const lastNameRef = useRef(null);
-    const firstNameRef = useRef(null);
+    const nameInputRef = useRef(null);
     const driverListRef = useRef(null);
-    const driverModalRef = useRef(null);
     const updateModalRef = useRef(null);
     const updateButtonRef = useRef(null);
     const groupedClasses = classes.reduce((groups, currentClass) => {
@@ -27,10 +27,12 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     useEffect(() => {
         if (editing) {
             const [first, ...rest] = editing.name.split(' ');
+            setNameInput(editing.name || '');
             setFirstName(first || '');
             setLastName(rest.join(' ') || '');
             setSelected(editing.classes || []);
         } else {
+            setNameInput('');
             setFirstName('');
             setLastName('');
             setSelected([]);
@@ -39,17 +41,45 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     }, [editing]);
 
     useEffect(() => {
-        if (showDriverModal) {
-            setTimeout(() => {
-                const first = driverListRef.current?.querySelector('li');
-                const fallback = driverModalRef.current?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                first?.focus();
-                if (!first) {
-                    fallback?.focus();
-                }
-            }, 0);
+        const query = nameInput.trim();
+        const selectedName = driverMatch
+            ? `${driverMatch.firstName} ${driverMatch.lastName}`
+            : '';
+
+        if (!query || query.toLowerCase() === selectedName.toLowerCase()) {
+            setDriverMatches([]);
+            setShowDriverMatches(false);
+            setActiveDriverIndex(-1);
+            return undefined;
         }
-    }, [showDriverModal]);
+
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            try {
+                const response = await fetch(`/drivers?name=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    throw new Error(`Unable to search drivers: ${response.status}`);
+                }
+                const matches = await response.json();
+                const nextMatches = Array.isArray(matches) ? matches : [];
+                setDriverMatches(nextMatches);
+                setShowDriverMatches(nextMatches.length > 0);
+                setActiveDriverIndex(-1);
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    setDriverMatches([]);
+                    setShowDriverMatches(false);
+                }
+            }
+        }, 150);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [nameInput, driverMatch]);
 
     useEffect(() => {
         if (showUpdateModal) {
@@ -60,57 +90,33 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     }, [showUpdateModal]);
 
     const applyDriverSelection = (driver) => {
-        setShowDriverModal(false);
-        if (driver) {
-            setLastName(driver.lastName);
-            setFirstName(driver.firstName);
-            setDriverMatch(driver);
-        } else {
-            setDriverMatch(null);
-            setFirstName('');
-        }
-        setTimeout(() => {
-            firstNameRef.current?.focus();
-        }, 0);
+        setNameInput(`${driver.firstName} ${driver.lastName}`);
+        setLastName(driver.lastName);
+        setFirstName(driver.firstName);
+        setDriverMatch(driver);
+        setDriverMatches([]);
+        setShowDriverMatches(false);
+        setActiveDriverIndex(-1);
+        nameInputRef.current?.focus();
     };
 
-    const handleDriverListKeyDown = (e) => {
-        const list = driverListRef.current;
-        if (!list) return;
-        const items = Array.from(list.querySelectorAll('li'));
-        if (!items.length) return;
+    const handleNameKeyDown = (e) => {
+        if (!showDriverMatches || !driverMatches.length) return;
 
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            const currentIndex = items.indexOf(document.activeElement);
             const delta = e.key === 'ArrowDown' ? 1 : -1;
-            const nextIndex = (currentIndex + delta + items.length) % items.length;
-            items[nextIndex]?.focus();
+            setActiveDriverIndex(current =>
+                (current + delta + driverMatches.length) % driverMatches.length
+            );
         } else if (e.key === 'Enter') {
-            const active = document.activeElement;
-            const idx = items.indexOf(active);
-            if (idx !== -1) {
-                const selected = driverMatches[idx];
-                applyDriverSelection(selected || null);
+            if (activeDriverIndex >= 0) {
+                e.preventDefault();
+                applyDriverSelection(driverMatches[activeDriverIndex]);
             }
-        }
-    };
-
-    const checkDriverMatch = async (lastNameValue) => {
-        const value = (lastNameValue || '').trim();
-        setDriverMatch(null);
-        if (!value) return;
-
-        try {
-            const res = await fetch(`/drivers?lastName=${encodeURIComponent(value)}`);
-            if (!res.ok) return;
-            const matches = await res.json();
-            if (Array.isArray(matches) && matches.length > 0) {
-                setDriverMatches(matches);
-                setShowDriverModal(true);
-            }
-        } catch {
-            // ignore errors
+        } else if (e.key === 'Escape') {
+            setShowDriverMatches(false);
+            setActiveDriverIndex(-1);
         }
     };
 
@@ -134,13 +140,12 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
             }
             return data;
         }).then(() => {
+            setNameInput('');
             setFirstName('');
             setLastName('');
             setSelected([]);
             setDriverMatch(null);
-            if (lastNameRef.current) {
-                lastNameRef.current.focus();
-            }
+            nameInputRef.current?.focus();
             setShowUpdateModal(false);
             setExistingRegistration(null);
             onSave();
@@ -150,25 +155,41 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     };
 
     const resetForm = () => {
+        setNameInput('');
         setFirstName('');
         setLastName('');
         setSelected([]);
         setDriverMatch(null);
         setDriverMatches([]);
-        setShowDriverModal(false);
+        setShowDriverMatches(false);
         setShowUpdateModal(false);
         setExistingRegistration(null);
         setTimeout(() => {
-            lastNameRef.current?.focus();
+            nameInputRef.current?.focus();
         }, 0);
     };
 
     const submit = (e) => {
         e.preventDefault();
-        if (!firstName.trim() || !lastName.trim()) return;
+        const enteredName = nameInput.trim().replace(/\s+/g, ' ');
+        const exactDriver = driverMatch || driverMatches.find(driver => {
+            const forward = `${driver.firstName} ${driver.lastName}`.toLowerCase();
+            const reverse = `${driver.lastName} ${driver.firstName}`.toLowerCase();
+            return enteredName.toLowerCase() === forward || enteredName.toLowerCase() === reverse;
+        });
+        const [enteredFirstName, ...enteredLastNameParts] = enteredName.split(' ');
+        const resolvedFirstName = exactDriver?.firstName || enteredFirstName;
+        const resolvedLastName = exactDriver?.lastName || enteredLastNameParts.join(' ');
+
+        if (!resolvedFirstName || !resolvedLastName) {
+            window.alert('Enter both a first and last name');
+            return;
+        }
+        setFirstName(resolvedFirstName);
+        setLastName(resolvedLastName);
         const payload = {
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
+            firstName: resolvedFirstName.trim(),
+            lastName: resolvedLastName.trim(),
             classes: selected,
         };
 
@@ -207,13 +228,6 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
             });
     };
 
-    const handleRegisterButtonKeyDown = (e) => {
-        if (e.key === 'Tab' && !e.shiftKey) {
-            e.preventDefault();
-            lastNameRef.current?.focus();
-        }
-    };
-
     if (!registrationOpen) {
         return (
             <div className="alert alert-secondary mb-4" role="status">
@@ -225,77 +239,65 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     return (
         <form onSubmit={submit} className="mb-4">
             <h4>{editing ? 'Edit Signup' : 'Signup'}</h4>
-            <div className="mb-3">
-                <label className="form-label" htmlFor="lastName">Last Name *</label>
+            <div
+                className="mb-3"
+                onBlur={e => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                        setShowDriverMatches(false);
+                        setActiveDriverIndex(-1);
+                    }
+                }}
+            >
+                <label className="form-label" htmlFor="name">Name *</label>
                 <input
-                    id="lastName"
+                    id="name"
                     type="text"
                     className="form-control"
-                    value={lastName}
-                    ref={lastNameRef}
+                    value={nameInput}
+                    ref={nameInputRef}
                     onChange={e => {
-                        setLastName(e.target.value);
+                        setNameInput(e.target.value);
+                        setFirstName('');
+                        setLastName('');
                         setDriverMatch(null);
                     }}
-                    onBlur={e => checkDriverMatch(e.target.value)}
+                    onFocus={() => setShowDriverMatches(driverMatches.length > 0)}
+                    onKeyDown={handleNameKeyDown}
+                    autoComplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={showDriverMatches}
+                    aria-controls="driver-matches"
+                    aria-activedescendant={activeDriverIndex >= 0 ? `driver-match-${activeDriverIndex}` : undefined}
+                    placeholder="First Last or Last First"
                     required
                 />
-                {driverMatch ? (
-                    <div className="form-text text-success">
-                        Found driver: {driverMatch.firstName} {driverMatch.lastName}
+                {showDriverMatches ? (
+                    <div id="driver-matches" className="list-group mt-1" role="listbox" ref={driverListRef}>
+                        {driverMatches.map((driver, index) => (
+                            <button
+                                id={`driver-match-${index}`}
+                                key={`${driver.firstName}-${driver.lastName}-${index}`}
+                                type="button"
+                                className={`list-group-item list-group-item-action${activeDriverIndex === index ? ' active' : ''}`}
+                                role="option"
+                                aria-selected={activeDriverIndex === index}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => applyDriverSelection(driver)}
+                                onMouseEnter={() => setActiveDriverIndex(index)}
+                            >
+                                {driver.firstName} {driver.lastName}
+                            </button>
+                        ))}
                     </div>
                 ) : null}
-            </div>
-            <div className="mb-3">
-                <label className="form-label" htmlFor="firstName">First Name *</label>
-                <input
-                    id="firstName"
-                    type="text"
-                    className="form-control"
-                    value={firstName}
-                    ref={firstNameRef}
-                    onChange={e => setFirstName(e.target.value)}
-                    required
-                />
-            </div>
-
-            {showDriverModal ? (
-                <div className="modal" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <div className="modal-dialog modal-dialog-centered" role="dialog" aria-modal="true" aria-labelledby="select-driver-modal-title" ref={driverModalRef} tabIndex={-1}>
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title" id="select-driver-modal-title">Select Driver</h5>
-                                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowDriverModal(false)} />
-                            </div>
-                            <div className="modal-body">
-                                <p>Please select the driver that matches <strong>{lastName}</strong>:</p>
-                                <ul className="list-group" ref={driverListRef} onKeyDown={handleDriverListKeyDown}>
-                                    {driverMatches.map((d, idx) => (
-                                        <li
-                                            key={`${d.lastName}-${idx}`}
-                                            className="list-group-item d-flex justify-content-between align-items-center"
-                                            onClick={() => applyDriverSelection(d)}
-                                            style={{ cursor: 'pointer' }}
-                                            tabIndex={0}
-                                        >
-                                            {d.firstName} {d.lastName}
-                                        </li>
-                                    ))}
-                                    <li
-                                        className="list-group-item d-flex justify-content-between align-items-center"
-                                        onClick={() => applyDriverSelection(null)}
-                                        style={{ cursor: 'pointer' }}
-                                        tabIndex={0}
-                                    >
-                                        + Add new driver (not listed)
-                                    </li>
-                                </ul>
-                                <div className="form-text text-muted mt-2">Tap or press Enter to select a driver.</div>
-                            </div>
-                        </div>
+                {driverMatch ? (
+                    <div className="form-text text-success">
+                        Selected driver: {driverMatch.firstName} {driverMatch.lastName}
                     </div>
-                </div>
-            ) : null}
+                ) : null}
+                <div className="form-text">Type a first or last name, then select a matching driver.</div>
+            </div>
 
             {showUpdateModal && existingRegistration ? (
                 <div className="modal" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.4)' }}>
@@ -374,7 +376,7 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                 </div>
             </div>
             <div className="d-flex gap-2">
-                <button type="submit" className="btn btn-primary" onKeyDown={handleRegisterButtonKeyDown}>
+                <button type="submit" className="btn btn-primary">
                     {editing ? 'Update' : 'Register'}
                 </button>
                 <button type="button" className="btn btn-outline-secondary" onClick={resetForm}>
