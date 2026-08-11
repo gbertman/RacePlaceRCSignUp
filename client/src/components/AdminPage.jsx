@@ -1,4 +1,22 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import {
+    Badge,
+    Box,
+    Button,
+    Card,
+    Group,
+    Modal,
+    NativeSelect,
+    Paper,
+    PasswordInput,
+    SimpleGrid,
+    Stack,
+    Switch,
+    Text,
+    TextInput,
+    Title,
+    VisuallyHidden,
+} from '@mantine/core';
 import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 import useAdminSession from '../hooks/useAdminSession';
@@ -12,7 +30,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     const [password, setPassword] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [selectedScanTrack, setSelectedScanTrack] = useState('');
-    const driverModalRef = useRef(null);
     const trackNames = trackTypes.map(track => track.name);
     const printableTrackNames = trackTypes
         .filter(track => track.enabled && classes.some(item => item.type === track.name))
@@ -145,10 +162,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     useEffect(() => {
         if (isDriverModalOpen && isAuthenticated) {
             loadDrivers();
-            setTimeout(() => {
-                const first = driverModalRef.current?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                first?.focus();
-            }, 0);
         }
     }, [isDriverModalOpen, isAuthenticated, loadDrivers]);
 
@@ -490,136 +503,125 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     };
 
     if (isCheckingAuth) {
-        return <p className="text-muted">Checking admin login...</p>;
+        return <Text c="dimmed">Checking admin login...</Text>;
     }
 
     if (!isAuthenticated) {
         return (
-            <div className="row justify-content-center">
-                <div className="col-md-6 col-lg-5">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h4 className="mb-0">Admin Login</h4>
-                        <Link className="btn btn-outline-secondary" to="/">Back to Signup</Link>
-                    </div>
-                    <div className="card shadow-sm">
-                        <div className="card-body">
-                            <p className="text-muted">
+            <Box maw={520} mx="auto">
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={1} size="h4">Admin Login</Title>
+                        <Button component={Link} to="/" variant="default">Back to Signup</Button>
+                    </Group>
+                    <Paper withBorder shadow="sm" p="lg">
+                        <Stack>
+                            <Text c="dimmed">
                                 Sign in to access admin tools.
-                            </p>
-                            <form onSubmit={login}>
-                                <div className="mb-3">
-                                    <label className="form-label" htmlFor="admin-username">Username</label>
-                                    <input
+                            </Text>
+                            <Box component="form" onSubmit={login}>
+                              <Stack>
+                                    <TextInput
                                         id="admin-username"
-                                        className="form-control"
+                                        label="Username"
                                         value={username}
-                                        onChange={e => setUsername(e.target.value)}
+                                        onChange={e => setUsername(e.currentTarget.value)}
                                         autoComplete="username"
                                     />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label" htmlFor="admin-password">Password</label>
-                                    <input
+                                    <PasswordInput
                                         id="admin-password"
-                                        type="password"
-                                        className="form-control"
+                                        label="Password"
                                         value={password}
-                                        onChange={e => setPassword(e.target.value)}
+                                        onChange={e => setPassword(e.currentTarget.value)}
                                         autoComplete="current-password"
                                     />
-                                </div>
-                                <button type="submit" className="btn btn-primary" disabled={isLoggingIn}>
+                                <Button type="submit" loading={isLoggingIn} style={{ alignSelf: 'flex-start' }}>
                                     {isLoggingIn ? 'Signing In...' : 'Sign In'}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                                </Button>
+                              </Stack>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                </Stack>
+            </Box>
         );
     }
 
     return (
-        <div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 className="mb-0">Admin</h4>
-                <div className="d-flex gap-2">
+        <Stack gap="xl">
+            <Group justify="space-between" align="center">
+                <Title order={1} size="h4">Admin</Title>
+                <Group>
                     {isAdministrator ? (
-                        <Link className="btn btn-outline-primary" to="/admin/users">
+                        <Button component={Link} to="/admin/users" variant="light">
                             User Management
-                        </Link>
+                        </Button>
                     ) : null}
-                    <button className="btn btn-outline-danger" onClick={logout}>
+                    <Button color="red" variant="light" onClick={logout}>
                         Log Out
-                    </button>
-                    <Link className="btn btn-outline-secondary" to="/">Back to Signup</Link>
-                </div>
-            </div>
-            <div className="mb-4">
-                <div className="mb-2">
-                    <button className="btn btn-secondary me-2" onClick={() => setDriverModalOpen(true)}>
+                    </Button>
+                    <Button component={Link} to="/" variant="default">Back to Signup</Button>
+                </Group>
+            </Group>
+            <Stack gap="md">
+                <Group>
+                    <Button color="gray" onClick={() => setDriverModalOpen(true)}>
                         Driver List
-                    </button>
-                    <button className="btn btn-success me-2" onClick={printSheet}>
+                    </Button>
+                    <Button color="green" onClick={printSheet}>
                         Print Spreadsheet
-                    </button>
-                    <Link className="btn btn-primary me-2" to="/admin/sheet-import">
+                    </Button>
+                    <Button component={Link} to="/admin/sheet-import">
                         Scan Registration Sheet
-                    </Link>
-                    <button className="btn btn-danger" onClick={resetAll}>
+                    </Button>
+                    <Button color="red" onClick={resetAll}>
                         Reset Registrations
-                    </button>
-                </div>
-                <div className="row g-2 align-items-end mt-2">
-                    <div className="col-sm-5 col-md-4">
-                        <label className="form-label" htmlFor="scan-sheet-track">Scan-friendly sheet track</label>
-                        <select
+                    </Button>
+                </Group>
+                <Group align="end">
+                        <NativeSelect
                             id="scan-sheet-track"
-                            className="form-select"
+                            label="Scan-friendly sheet track"
                             value={selectedScanTrack}
-                            onChange={event => setSelectedScanTrack(event.target.value)}
+                            onChange={event => setSelectedScanTrack(event.currentTarget.value)}
                             disabled={printableTrackNames.length === 0}
-                        >
-                            {printableTrackNames.length === 0 ? (
-                                <option value="">No printable tracks</option>
-                            ) : printableTrackNames.map(trackName => (
-                                <option key={trackName} value={trackName}>{trackName}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="col-sm-auto">
-                        <button
-                            className="btn btn-outline-success"
+                            data={printableTrackNames.length === 0
+                                ? [{ value: '', label: 'No printable tracks' }]
+                                : printableTrackNames}
+                        />
+                        <Button
+                            color="green"
+                            variant="light"
                             onClick={() => printScanSheet(selectedScanTrack)}
                             disabled={!selectedScanTrack}
                         >
                             Print Selected Track
-                        </button>
-                    </div>
+                        </Button>
                     {printableTrackNames.length > 1 ? (
-                        <div className="col-sm-auto">
-                            <button className="btn btn-outline-secondary" onClick={() => printScanSheet()}>
+                            <Button variant="default" onClick={() => printScanSheet()}>
                                 Print All Tracks
-                            </button>
-                        </div>
+                            </Button>
                     ) : null}
-                </div>
-                <div className="mt-4">
-                    <h5 className="mb-3">Download Race Registrations</h5>
-                    <button className="btn btn-secondary me-2" onClick={() => downloadCsv()}>
+                </Group>
+                <Stack gap="sm">
+                    <Title order={2} size="h5">Download Race Registrations</Title>
+                    <Group>
+                    <Button color="gray" onClick={() => downloadCsv()}>
                         Download All CSV
-                    </button>
+                    </Button>
                     {trackNames.map(trackName => (
-                        <button
+                        <Button
                             key={trackName}
-                            className="btn btn-outline-secondary me-2 mt-2 mt-sm-0"
+                            variant="default"
                             onClick={() => downloadCsv(trackName)}
                         >
                             {trackName} CSV
-                        </button>
+                        </Button>
                     ))}
-                </div>
-                <input
+                    </Group>
+                </Stack>
+                <VisuallyHidden>
+                  <input
                     ref={restoreInputRef}
                     type="file"
                     accept="application/json"
@@ -628,163 +630,148 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                         const file = e.target.files && e.target.files[0];
                         if (file) restoreData(file);
                     }}
-                />
-            </div>
-            <div className="mb-4">
-                <h5>Class Counts</h5>
+                  />
+                </VisuallyHidden>
+            </Stack>
+            <Stack gap="sm">
+                <Title order={2} size="h5">Class Counts</Title>
                 {classes.length === 0 ? (
-                    <p className="text-muted mb-0">No classes configured.</p>
+                    <Text c="dimmed">No classes configured.</Text>
                 ) : (
-                    <div className="row g-3">
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
                         {Object.entries(classesByType).map(([type, group]) => (
-                            <div key={type} className="col-sm-6 col-lg-4">
-                                <div className="border rounded p-3 h-100">
-                                    <div className="fw-bold mb-2">{type}</div>
-                                    <ul className="list-unstyled mb-0">
+                            <Card key={type} withBorder>
+                                    <Text fw={700} mb="xs">{type}</Text>
+                                    <Stack gap={6}>
                                         {group.map(c => (
-                                            <li key={c.name} className="d-flex justify-content-between align-items-center py-1">
-                                                <span>{c.name}</span>
-                                                <span className="badge bg-secondary rounded-pill">{classCounts[c.name] || 0}</span>
-                                            </li>
+                                            <Group key={c.name} justify="space-between">
+                                                <Text>{c.name}</Text>
+                                                <Badge color="gray">{classCounts[c.name] || 0}</Badge>
+                                            </Group>
                                         ))}
-                                    </ul>
-                                </div>
-                            </div>
+                                    </Stack>
+                            </Card>
                         ))}
-                    </div>
+                    </SimpleGrid>
                 )}
-            </div>
-            <div className="mb-4">
-                <h5>Current Registrants</h5>
+            </Stack>
+            <Stack gap="sm">
+                <Title order={2} size="h5">Current Registrants</Title>
                 {entries.length === 0 ? (
-                    <p className="text-muted mb-0">No registrations yet.</p>
+                    <Text c="dimmed">No registrations yet.</Text>
                 ) : (
-                    <ul className="list-group">
+                    <Stack gap="xs">
                         {entries.map((r) => (
-                            <li
-                                key={r.key}
-                                className="list-group-item d-flex justify-content-between align-items-center"
-                            >
+                            <Card key={r.key} withBorder padding="sm">
+                              <Group justify="space-between" align="center">
                                 <div>
-                                    <div>{r.name}</div>
-                                    <div className="text-muted small">{r.classes.join(', ')}</div>
-                                    <div className="text-muted small">
+                                    <Text fw={600}>{r.name}</Text>
+                                    <Text c="dimmed" size="sm">{r.classes.join(', ')}</Text>
+                                    <Text c="dimmed" size="sm">
                                         Registered: {formatRegistrationDate(r.registeredAt)}
-                                    </div>
+                                    </Text>
                                 </div>
-                                <button
-                                    className="btn btn-outline-danger btn-sm"
+                                <Button
+                                    color="red"
+                                    variant="light"
+                                    size="xs"
                                     onClick={() => deleteRegistrant(r.key)}
                                 >
                                     Delete
-                                </button>
-                            </li>
+                                </Button>
+                              </Group>
+                            </Card>
                         ))}
-                    </ul>
+                    </Stack>
                 )}
-            </div>
-            <div className="mb-4">
-                <h5>Track Availability</h5>
+            </Stack>
+            <Stack gap="sm">
+                <Title order={2} size="h5">Track Availability</Title>
                 {trackTypes.length === 0 ? (
-                    <p className="text-muted mb-0">No tracks configured.</p>
+                    <Text c="dimmed">No tracks configured.</Text>
                 ) : (
-                    <div className="row g-3">
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
                         {trackTypes.map(track => (
-                            <div key={track.name} className="col-sm-6 col-lg-4">
-                                <label className="border rounded p-3 h-100 w-100 d-flex justify-content-between align-items-start gap-3">
+                            <Card key={track.name} withBorder>
+                              <Group justify="space-between" align="flex-start">
                                     <div>
-                                        <div>{track.name}</div>
-                                        <div className="text-muted small">
+                                        <Text fw={600}>{track.name}</Text>
+                                        <Text c="dimmed" size="sm">
                                             {track.enabled ? 'Open for registration' : 'Closed on the signup page'}
-                                        </div>
+                                        </Text>
                                     </div>
-                                    <div className="form-check form-switch mb-0">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            role="switch"
+                                        <Switch
+                                            aria-label={`Toggle ${track.name} registration`}
                                             checked={track.enabled}
-                                            onChange={e => updateTrackEnabled(track.name, e.target.checked)}
+                                            onChange={e => updateTrackEnabled(track.name, e.currentTarget.checked)}
                                         />
-                                    </div>
-                                </label>
-                            </div>
+                              </Group>
+                            </Card>
                         ))}
-                    </div>
+                    </SimpleGrid>
                 )}
-            </div>
+            </Stack>
             <ClassEditor classes={classes} trackTypes={trackNames} onSave={onClassesSaved} />
-            <div className="mt-4">
-                <h4>Maintenance</h4>
-                <button className="btn btn-secondary me-2" onClick={backupData}>
+            <Stack gap="sm">
+                <Title order={2} size="h4">Maintenance</Title>
+                <Group>
+                <Button color="gray" onClick={backupData}>
                     Backup
-                </button>
-                <button className="btn btn-secondary me-2" onClick={triggerRestore}>
+                </Button>
+                <Button color="gray" onClick={triggerRestore}>
                     Restore
-                </button>
-            </div>
+                </Button>
+                </Group>
+            </Stack>
 
-            {isDriverModalOpen ? (
-                <div className="modal" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <div className="modal-dialog modal-dialog-centered" role="dialog" aria-modal="true" aria-labelledby="driver-list-modal-title" ref={driverModalRef} tabIndex={-1}>
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title" id="driver-list-modal-title">Driver List</h5>
-                                <button type="button" className="btn-close" aria-label="Close" onClick={() => setDriverModalOpen(false)} />
-                            </div>
-                            <div className="modal-body">
-                                <div className="mb-3">
-                                    <label className="form-label">First Name</label>
-                                    <input
-                                        className="form-control"
+            <Modal opened={isDriverModalOpen} onClose={() => setDriverModalOpen(false)} title="Driver List" centered>
+                            <Stack>
+                                    <TextInput
+                                        data-autofocus
+                                        label="First Name"
                                         value={newDriverFirst}
-                                        onChange={e => setNewDriverFirst(e.target.value)}
+                                        onChange={e => setNewDriverFirst(e.currentTarget.value)}
                                     />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Last Name</label>
-                                    <input
-                                        className="form-control"
+                                    <TextInput
+                                        label="Last Name"
                                         value={newDriverLast}
-                                        onChange={e => setNewDriverLast(e.target.value)}
+                                        onChange={e => setNewDriverLast(e.currentTarget.value)}
                                     />
-                                </div>
-                                <button className="btn btn-primary mb-3" onClick={addDriver}>
+                                <Button onClick={addDriver} style={{ alignSelf: 'flex-start' }}>
                                     Add Driver
-                                </button>
-                                <div>
-                                    <h6>Existing Drivers</h6>
+                                </Button>
+                                <Stack gap="xs">
+                                    <Title order={3} size="h6">Existing Drivers</Title>
                                     {drivers.length === 0 ? (
-                                        <p className="text-muted">No drivers yet.</p>
+                                        <Text c="dimmed">No drivers yet.</Text>
                                     ) : (
-                                        <ul className="list-group">
+                                        <Stack gap="xs">
                                             {drivers.map((d, idx) => (
-                                                <li key={`${d.lastName}-${idx}`} className="list-group-item d-flex justify-content-between align-items-center">
-                                                    <div>
+                                                <Card key={`${d.lastName}-${idx}`} withBorder padding="xs">
+                                                  <Group justify="space-between">
+                                                    <Text>
                                                         {d.firstName} {d.lastName}
-                                                    </div>
-                                                    <button
-                                                        className="btn btn-sm btn-outline-danger"
+                                                    </Text>
+                                                    <Button
+                                                        size="xs"
+                                                        color="red"
+                                                        variant="light"
                                                         onClick={() => deleteDriver(d.firstName, d.lastName)}
                                                     >
                                                         Delete
-                                                    </button>
-                                                </li>
+                                                    </Button>
+                                                  </Group>
+                                                </Card>
                                             ))}
-                                        </ul>
+                                        </Stack>
                                     )}
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setDriverModalOpen(false)}>
+                                </Stack>
+                                <Button variant="default" onClick={() => setDriverModalOpen(false)} style={{ alignSelf: 'flex-end' }}>
                                     Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-        </div>
+                                </Button>
+                            </Stack>
+            </Modal>
+        </Stack>
     );
 }
 

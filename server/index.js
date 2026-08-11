@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -20,21 +19,12 @@ const io = new Server(server, {
     },
 });
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
 const DATA_DIR = path.join(__dirname, 'data');
-const CLASSES_FILE = path.join(DATA_DIR, 'classes.json');
-const REG_FILE = path.join(DATA_DIR, 'registrations.json');
-const TRACK_FILE = path.join(DATA_DIR, 'track.json');
-const DRIVERS_FILE = path.join(DATA_DIR, 'drivers.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const DEFAULT_ADMIN_PASSWORD = 'admin';
+const INITIAL_ADMIN_USERNAME = (process.env.INITIAL_ADMIN_USERNAME || 'admin').trim();
+const INITIAL_ADMIN_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'admin';
 const BCRYPT_SALT_ROUNDS = 10;
-const DEFAULT_ADMIN_USER = {
-    username: 'admin',
-    password: DEFAULT_ADMIN_PASSWORD,
-    role: 'administrator',
-};
 const ADMIN_COOKIE_NAME = 'raceplace_admin_session';
 const adminSessions = new Map();
 const sheetUpload = multer({
@@ -85,114 +75,22 @@ function initializeDatabase() {
             classes TEXT NOT NULL
         );
     `);
-    migrateJsonDataIfNeeded();
-    ensureDefaultAdmin();
+    ensureInitialAdmin();
 }
 
-function migrateJsonDataIfNeeded() {
-    const usersCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
-    const classesCount = db.prepare('SELECT COUNT(*) AS count FROM classes').get().count;
-    const trackCount = db.prepare('SELECT COUNT(*) AS count FROM track').get().count;
-    const driversCount = db.prepare('SELECT COUNT(*) AS count FROM drivers').get().count;
-    const registrationsCount = db.prepare('SELECT COUNT(*) AS count FROM registrations').get().count;
-
-    if (usersCount === 0 && fs.existsSync(USERS_FILE)) {
-        replaceAllUsers(readUsersJson());
-    }
-    if (classesCount === 0 && fs.existsSync(CLASSES_FILE)) {
-        replaceAllClasses(readClassesJson());
-    }
-    if (trackCount === 0 && fs.existsSync(TRACK_FILE)) {
-        replaceAllTrackTypes(readTrackTypesJson());
-    }
-    if (driversCount === 0 && fs.existsSync(DRIVERS_FILE)) {
-        replaceAllDrivers(readDriversJson());
-    }
-    if (registrationsCount === 0 && fs.existsSync(REG_FILE)) {
-        replaceAllRegistrations(readRegistrationsJson());
-    }
-}
-
-function ensureDefaultAdmin() {
+function ensureInitialAdmin() {
     const hasAdmin = db.prepare("SELECT 1 FROM users WHERE role = 'administrator' LIMIT 1").get();
-    if (!hasAdmin) {
-        const normalized = normalizeStoredUser(DEFAULT_ADMIN_USER);
-        db.prepare('INSERT OR REPLACE INTO users (username, password, role) VALUES (?, ?, ?)')
-            .run(normalized.username, normalized.password, normalized.role);
+    if (hasAdmin) {
+        return;
     }
-}
 
-function readClassesJson() {
-    if (!fs.existsSync(CLASSES_FILE)) return [];
-    try {
-        const json = fs.readFileSync(CLASSES_FILE, 'utf8');
-        return JSON.parse(json).map(item => ({
-            ...item,
-            type: normalizeTrackType(item.type),
-        }));
-    } catch {
-        return [];
-    }
-}
-
-function readRegistrationsJson() {
-    if (!fs.existsSync(REG_FILE)) return {};
-    try {
-        const txt = fs.readFileSync(REG_FILE, 'utf8');
-        const regs = JSON.parse(txt);
-        return Object.fromEntries(
-            Object.entries(regs).map(([key, value]) => {
-                const name = value.name || key;
-                const [firstName = '', ...lastNameParts] = name.split(' ');
-                return [
-                    key,
-                    {
-                        ...value,
-                        name,
-                        firstName,
-                        lastName: lastNameParts.join(' '),
-                        registeredAt: value.registeredAt,
-                    },
-                ];
-            })
-        );
-    } catch {
-        return {};
-    }
-}
-
-function readTrackTypesJson() {
-    if (!fs.existsSync(TRACK_FILE)) return [];
-    try {
-        const json = fs.readFileSync(TRACK_FILE, 'utf8');
-        return JSON.parse(json).map(normalizeTrackConfig);
-    } catch {
-        return [];
-    }
-}
-
-function readDriversJson() {
-    if (!fs.existsSync(DRIVERS_FILE)) return [];
-    try {
-        const json = fs.readFileSync(DRIVERS_FILE, 'utf8');
-        return JSON.parse(json);
-    } catch {
-        return [];
-    }
-}
-
-function readUsersJson() {
-    if (!fs.existsSync(USERS_FILE)) {
-        return [normalizeStoredUser(DEFAULT_ADMIN_USER)];
-    }
-    try {
-        const json = fs.readFileSync(USERS_FILE, 'utf8');
-        const parsed = JSON.parse(json);
-        if (!Array.isArray(parsed)) return [normalizeStoredUser(DEFAULT_ADMIN_USER)];
-        return parsed.map(normalizeStoredUser).filter(user => user.username);
-    } catch {
-        return [normalizeStoredUser(DEFAULT_ADMIN_USER)];
-    }
+    const normalized = normalizeStoredUser({
+        username: INITIAL_ADMIN_USERNAME,
+        password: INITIAL_ADMIN_PASSWORD,
+        role: 'administrator',
+    });
+    db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)')
+        .run(normalized.username, normalized.password, normalized.role);
 }
 
 function readUsers() {
@@ -305,21 +203,6 @@ function addDriverIfMissing(firstName, lastName) {
         .run(normalizedFirstName, normalizedLastName);
 }
 
-function replaceAllUsers(users) {
-    const normalizedUsers = users
-        .map(normalizeStoredUser)
-        .filter(user => user.username);
-    const insert = db.prepare('INSERT OR REPLACE INTO users (username, password, role) VALUES (?, ?, ?)');
-    const transaction = db.transaction((items) => {
-        db.prepare('DELETE FROM users').run();
-        for (const user of items) {
-            insert.run(user.username, user.password, user.role);
-        }
-    });
-    transaction(normalizedUsers);
-    ensureDefaultAdmin();
-}
-
 function replaceAllClasses(list) {
     const normalized = list.map(item => ({
         ...item,
@@ -333,6 +216,22 @@ function replaceAllClasses(list) {
         }
     });
     transaction(normalized);
+}
+
+function replaceClassesForType(type, list) {
+    const normalizedType = normalizeTrackType(type);
+    const names = list
+        .map(item => (typeof item === 'string' ? item : item?.name))
+        .map(name => (name || '').trim())
+        .filter(Boolean);
+    const insert = db.prepare('INSERT OR REPLACE INTO classes (name, type) VALUES (?, ?)');
+    const transaction = db.transaction((classNames) => {
+        db.prepare('DELETE FROM classes WHERE type = ?').run(normalizedType);
+        for (const name of classNames) {
+            insert.run(name, normalizedType);
+        }
+    });
+    transaction(names);
 }
 
 function replaceAllTrackTypes(types) {
@@ -916,8 +815,12 @@ app.put('/admin/users/:username', requireAdmin, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.username === DEFAULT_ADMIN_USER.username && normalizedRole !== 'administrator') {
-        return res.status(400).json({ error: 'The default admin user must keep admin access' });
+    if (
+        user.role === 'administrator' &&
+        normalizedRole !== 'administrator' &&
+        countAdministrators() <= 1
+    ) {
+        return res.status(400).json({ error: 'At least one admin user is required' });
     }
 
     updateUserRecord(user.username, {
@@ -934,10 +837,6 @@ app.delete('/admin/users/:username', requireAdmin, (req, res) => {
 
     if (!userToDelete) {
         return res.status(404).json({ error: 'User not found' });
-    }
-
-    if (userToDelete.username === DEFAULT_ADMIN_USER.username) {
-        return res.status(400).json({ error: 'The default admin user cannot be deleted' });
     }
 
     if (userToDelete.role === 'administrator' && countAdministrators() <= 1) {
@@ -1162,8 +1061,16 @@ app.get('/backup', requireAuthenticated, (req, res) => {
 
 app.post('/restore', requireAuthenticated, (req, res) => {
     try {
-        const { classes, registrations, trackTypes, drivers } = req.body;
+        const { classes, classesByType, registrations, trackTypes, drivers } = req.body;
         if (Array.isArray(classes)) replaceAllClasses(classes);
+        if (classesByType && typeof classesByType === 'object' && !Array.isArray(classesByType)) {
+            for (const [type, classList] of Object.entries(classesByType)) {
+                if (!Array.isArray(classList)) {
+                    throw new Error(`Classes for ${type} must be an array`);
+                }
+                replaceClassesForType(type, classList);
+            }
+        }
         if (registrations && typeof registrations === 'object') replaceAllRegistrations(registrations);
         if (Array.isArray(trackTypes)) replaceAllTrackTypes(trackTypes);
         if (Array.isArray(drivers)) replaceAllDrivers(drivers);
@@ -1284,12 +1191,16 @@ if (isProduction) {
     });
 }
 
-function shutdown() {
+function closeDatabase() {
     try {
         db.close();
     } catch (err) {
         console.error('Error closing database:', err);
     }
+}
+
+function shutdown() {
+    closeDatabase();
     process.exit(0);
 }
 
@@ -1306,7 +1217,9 @@ if (require.main === module) {
 module.exports = {
     app,
     buildSheetExtractionSchema,
+    closeDatabase,
     normalizeMatchText,
     prepareSheetRows,
+    replaceClassesForType,
     server,
 };

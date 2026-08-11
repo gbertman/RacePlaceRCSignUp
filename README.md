@@ -1,6 +1,6 @@
 # RacePlaceRC Signup App
 
-This repository contains a full-stack web application for signing up for RC racing classes. The frontend is built with React and Bootstrap; the backend uses Express.
+This repository contains a full-stack web application for signing up for RC racing classes. The frontend is built with React, Vite, and Mantine; the backend uses Express and SQLite.
 
 ## Features
 
@@ -10,8 +10,7 @@ This repository contains a full-stack web application for signing up for RC raci
 - Download the registration list as a CSV (`FirstName,LastName,ClassName,IsPaid`) named `YYYY-MM-DD Race Registrations.csv`
 - Admin tools for reset, CSV download, printing, driver management, maintenance backup/restore, and class editing live on `/admin`
 - Admins can print scan-friendly sheets per track, photograph them from a phone, verify GPT-extracted names and race marks, and import the approved racers
-- Classes are stored in a server-side JSON file (`data/classes.json`) and can be edited via the `/admin` screen. Track types come from `server/data/track.json`, and class grouping in the UI follows those values dynamically.
-- Data persists to files on the server so it survives restarts
+- Classes, tracks, drivers, users, and registrations are stored in SQLite and can be managed from the admin screens.
 
 ## Dependencies & APIs
 
@@ -19,16 +18,18 @@ This repository contains a full-stack web application for signing up for RC raci
 
 - **express**: handles HTTP routes
 - **cors**: enables cross-origin requests from the React client
-- **body-parser**: parses JSON request bodies
+- **better-sqlite3**: stores application data in SQLite
+- **openai** and **multer**: analyze photographed signup sheets without saving the uploaded image
 - **socket.io**: pushes live registration and class updates to connected clients
 
 ### Frontend
 
+- **vite**: development server and production bundler
 - **react-router-dom**: client-side routing for navigation
-- **bootstrap** and **react-bootstrap**: UI styling
+- **@mantine/core** and **@mantine/hooks**: accessible UI components, responsive layouts, and interaction utilities
 - **socket.io-client**: listens for live server updates in the signup and admin screens
 
-No additional external APIs are required; all data is served locally.
+The OpenAI API is only required when GPT-assisted sheet scanning is enabled.
 
 ### GPT-assisted sheet scanning
 
@@ -56,12 +57,12 @@ The API key must never be placed in the React client or committed to this reposi
 1. **Install** dependencies (from workspace root):
     ```bash
     npm install
-    cd server && npm install
-    cd ../client && npm install
+    npm install --prefix server
+    npm install --prefix client
     ```
 2. **Run in development**:
     ```bash
-    npm start
+    npm run dev
     ```
 3. **Open** your browser to `http://localhost:3000` to access the signup interface.
 4. Open `/admin` to manage the list of available classes and other admin actions.
@@ -74,16 +75,26 @@ The API key must never be placed in the React client or committed to this reposi
     ```
 2. **Start in production**:
     ```bash
-    npm run start:prod
+    NODE_ENV=production npm start
     ```
 
 In development, the React app runs on port `3000` and proxies API requests to the Express server on port `4000`. In production, Express serves the built client from `client/build`.
 
-## Data Files
+## SQLite data
 
-- `server/data/classes.json` - JSON array of classes with `name` and `type`
-- `server/data/track.json` - JSON array of available track types for the admin dropdown
-- `server/data/registrations.json` - JSON object storing registrations keyed by racer name
-- `server/data/drivers.json` - JSON array of saved drivers used for last-name matching in signup
+The default database is `server/data/raceplace.sqlite`. Override its location with `SQLITE_DB_FILE`.
 
-Feel free to edit these directly if needed.
+For a brand-new database, the server automatically creates an `admin` user with the password `admin`. Change this password in User Management after the first login. You can override either initial value before the first start:
+
+```text
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_PASSWORD=replace-with-a-strong-password
+```
+
+These variables are only used when the database does not contain an administrator. Existing administrator accounts are never overwritten during startup.
+
+On Render, mount a persistent disk and place the database on that disk, for example:
+
+```text
+SQLITE_DB_FILE=/var/data/raceplace.sqlite
+```

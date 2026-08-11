@@ -1,4 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import {
+    Alert,
+    Box,
+    Button,
+    Checkbox,
+    Group,
+    Modal,
+    Paper,
+    SimpleGrid,
+    Stack,
+    Text,
+    TextInput,
+    Title,
+    UnstyledButton,
+} from '@mantine/core';
 
 function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     const [nameInput, setNameInput] = useState('');
@@ -13,8 +28,6 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     const [selected, setSelected] = useState([]);
     const nameInputRef = useRef(null);
     const driverListRef = useRef(null);
-    const updateModalRef = useRef(null);
-    const updateButtonRef = useRef(null);
     const groupedClasses = classes.reduce((groups, currentClass) => {
         const type = currentClass.type || 'Other';
         if (!groups[type]) {
@@ -80,14 +93,6 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
             controller.abort();
         };
     }, [nameInput, driverMatch]);
-
-    useEffect(() => {
-        if (showUpdateModal) {
-            setTimeout(() => {
-                updateButtonRef.current?.focus();
-            }, 0);
-        }
-    }, [showUpdateModal]);
 
     const applyDriverSelection = (driver) => {
         setNameInput(`${driver.firstName} ${driver.lastName}`);
@@ -230,17 +235,18 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
 
     if (!registrationOpen) {
         return (
-            <div className="alert alert-secondary mb-4" role="status">
+            <Alert color="gray" mb="lg" role="status">
                 Registrations are closed at this time
-            </div>
+            </Alert>
         );
     }
 
     return (
-        <form onSubmit={submit} className="mb-4">
-            <h4>{editing ? 'Edit Signup' : 'Signup'}</h4>
-            <div
-                className="mb-3"
+        <Box component="form" onSubmit={submit} mb="xl">
+          <Stack gap="lg">
+            <Title order={2} size="h4">{editing ? 'Edit Signup' : 'Signup'}</Title>
+            <Box
+                pos="relative"
                 onBlur={e => {
                     if (!e.currentTarget.contains(e.relatedTarget)) {
                         setShowDriverMatches(false);
@@ -248,11 +254,10 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                     }
                 }}
             >
-                <label className="form-label" htmlFor="name">Name *</label>
-                <input
+                <TextInput
                     id="name"
-                    type="text"
-                    className="form-control"
+                    label="Name"
+                    description="Type a first or last name, then select a matching driver."
                     value={nameInput}
                     ref={nameInputRef}
                     onChange={e => {
@@ -273,13 +278,14 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                     required
                 />
                 {showDriverMatches ? (
-                    <div id="driver-matches" className="list-group mt-1" role="listbox" ref={driverListRef}>
+                    <Paper id="driver-matches" className="driver-match-list" withBorder shadow="md" role="listbox" ref={driverListRef}>
                         {driverMatches.map((driver, index) => (
-                            <button
+                            <UnstyledButton
                                 id={`driver-match-${index}`}
                                 key={`${driver.firstName}-${driver.lastName}-${index}`}
                                 type="button"
-                                className={`list-group-item list-group-item-action${activeDriverIndex === index ? ' active' : ''}`}
+                                className="driver-match-option"
+                                data-active={activeDriverIndex === index || undefined}
                                 role="option"
                                 aria-selected={activeDriverIndex === index}
                                 onMouseDown={e => e.preventDefault()}
@@ -287,48 +293,43 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                                 onMouseEnter={() => setActiveDriverIndex(index)}
                             >
                                 {driver.firstName} {driver.lastName}
-                            </button>
+                            </UnstyledButton>
                         ))}
-                    </div>
+                    </Paper>
                 ) : null}
                 {driverMatch ? (
-                    <div className="form-text text-success">
+                    <Text size="sm" c="green" mt={4}>
                         Selected driver: {driverMatch.firstName} {driverMatch.lastName}
-                    </div>
+                    </Text>
                 ) : null}
-                <div className="form-text">Type a first or last name, then select a matching driver.</div>
-            </div>
+            </Box>
 
-            {showUpdateModal && existingRegistration ? (
-                <div className="modal" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <div className="modal-dialog modal-dialog-centered" role="dialog" aria-modal="true" aria-labelledby="update-registration-modal-title" ref={updateModalRef} tabIndex={-1}>
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title" id="update-registration-modal-title">Update Registration?</h5>
-                                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowUpdateModal(false)} />
-                            </div>
-                            <div className="modal-body">
-                                <p>
-                                    <strong>{existingRegistration.name}</strong> is already registered for:
-                                </p>
+            <Modal
+                opened={showUpdateModal && Boolean(existingRegistration)}
+                onClose={() => setShowUpdateModal(false)}
+                title="Update Registration?"
+                centered
+            >
+                {existingRegistration ? (
+                    <Stack>
+                                <Text>
+                                    <Text component="span" fw={700}>{existingRegistration.name}</Text> is already registered for:
+                                </Text>
                                 <ul>
                                     {existingRegistration.classes.map(c => (
                                         <li key={c}>{c}</li>
                                     ))}
                                 </ul>
-                                <p>Your new selections:</p>
+                                <Text>Your new selections:</Text>
                                 <ul>
                                     {selected.map(c => (
                                         <li key={c}>{c}</li>
                                     ))}
                                 </ul>
-                                <p>Update this registration with your current selections?</p>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    ref={updateButtonRef}
+                                <Text>Update this registration with your current selections?</Text>
+                                <Group justify="flex-end">
+                                <Button
+                                    data-autofocus
                                     onClick={() => {
                                         const payload = {
                                             firstName: firstName.trim(),
@@ -340,50 +341,47 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                                     }}
                                 >
                                     Update
-                                </button>
-                                <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                                </Button>
+                                <Button variant="default" onClick={resetForm}>
                                     Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+                                </Button>
+                                </Group>
+                    </Stack>
+                ) : null}
+            </Modal>
 
-            <div className="mb-3">
-                <label className="form-label">Classes</label>
-                <div className="row">
+            <Stack gap="xs">
+                <Text fw={500}>Classes</Text>
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
                     {Object.entries(groupedClasses).map(([type, group]) => (
-                        <div key={type} className="col">
-                            <strong>{type.charAt(0).toUpperCase() + type.slice(1)}</strong>
+                        <Stack key={type} gap="xs">
+                            <Text fw={700}>{type.charAt(0).toUpperCase() + type.slice(1)}</Text>
                             {group.map((c, idx) => {
                                 const inputId = `class-${type}-${idx}`;
                                 return (
-                                    <div key={c.name} className="form-check">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
+                                        <Checkbox
+                                            key={c.name}
                                             checked={selected.includes(c.name)}
                                             id={inputId}
+                                            label={c.name}
                                             onChange={() => toggleClass(c.name)}
                                         />
-                                        <label className="form-check-label" htmlFor={inputId}>{c.name}</label>
-                                    </div>
                                 );
                             })}
-                        </div>
+                        </Stack>
                     ))}
-                </div>
-            </div>
-            <div className="d-flex gap-2">
-                <button type="submit" className="btn btn-primary">
+                </SimpleGrid>
+            </Stack>
+            <Group>
+                <Button type="submit">
                     {editing ? 'Update' : 'Register'}
-                </button>
-                <button type="button" className="btn btn-outline-secondary" onClick={resetForm}>
+                </Button>
+                <Button type="button" variant="default" onClick={resetForm}>
                     Cancel
-                </button>
-            </div>
-        </form>
+                </Button>
+            </Group>
+          </Stack>
+        </Box>
     );
 }
 

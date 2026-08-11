@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Box, Container } from '@mantine/core';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import RegistrationForm from './components/RegistrationForm';
 import RegistrationList from './components/RegistrationList';
@@ -62,15 +62,15 @@ function App() {
 
     return (
         <Router>
-            <nav className="navbar navbar-expand-lg navbar-light bg-light app-navbar">
-                <div className="container-fluid app-navbar-inner">
-                    <Link className="navbar-brand app-brand" to="/" aria-label="Race Place RC Signup home">
+            <Box component="header" className="app-navbar">
+                <Container size="lg" className="app-navbar-inner">
+                    <Link className="app-brand" to="/" aria-label="Race Place RC Signup home">
                         <img src={racePlaceLogo} alt="Race Place RC" className="app-logo" />
                         <span className="app-brand-title">Race Registration</span>
                     </Link>
-                </div>
-            </nav>
-            <div className="container mt-4">
+                </Container>
+            </Box>
+            <Container size="lg" py="xl">
                 <Routes>
                     <Route
                         path="/"
@@ -118,7 +118,7 @@ function App() {
                     />
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
-            </div>
+            </Container>
         </Router>
     );
 }

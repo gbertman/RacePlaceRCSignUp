@@ -1,4 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    Group,
+    NativeSelect,
+    PasswordInput,
+    SimpleGrid,
+    Stack,
+    Text,
+    TextInput,
+    Title,
+} from '@mantine/core';
 import { Link } from 'react-router-dom';
 import useAdminSession from '../hooks/useAdminSession';
 
@@ -119,102 +133,84 @@ function UserManagementPage() {
     };
 
     if (isCheckingAuth) {
-        return <p className="text-muted">Checking admin access...</p>;
+        return <Text c="dimmed">Checking admin access...</Text>;
     }
+
+    const pageHeader = (
+        <Group justify="space-between" align="center">
+            <Title order={1} size="h4">User Management</Title>
+            <Button component={Link} to="/admin" variant="default">Back to Admin</Button>
+        </Group>
+    );
 
     if (!isAuthenticated) {
         return (
-            <div>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4 className="mb-0">User Management</h4>
-                    <Link className="btn btn-outline-secondary" to="/admin">Back to Admin</Link>
-                </div>
-                <div className="alert alert-warning mb-0">Sign in on the Admin page to manage users.</div>
-            </div>
+            <Stack>
+                {pageHeader}
+                <Alert color="yellow">Sign in on the Admin page to manage users.</Alert>
+            </Stack>
         );
     }
 
     if (!isAdministrator) {
         return (
-            <div>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4 className="mb-0">User Management</h4>
-                    <Link className="btn btn-outline-secondary" to="/admin">Back to Admin</Link>
-                </div>
-                <div className="alert alert-danger mb-0">Only users with admin access can manage users.</div>
-            </div>
+            <Stack>
+                {pageHeader}
+                <Alert color="red">Only users with admin access can manage users.</Alert>
+            </Stack>
         );
     }
 
     return (
-        <div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 className="mb-0">User Management</h4>
-                <Link className="btn btn-outline-secondary" to="/admin">Back to Admin</Link>
-            </div>
+        <Stack gap="xl">
+            {pageHeader}
 
-            <div className="mb-4">
-                <h5>Add User</h5>
-                <form onSubmit={createUser}>
-                    <div className="row g-3">
-                        <div className="col-md-4">
-                            <label className="form-label" htmlFor="new-user-username">Username</label>
-                            <input
+            <Stack gap="sm">
+                <Title order={2} size="h5">Add User</Title>
+                <Box component="form" onSubmit={createUser}>
+                    <SimpleGrid cols={{ base: 1, md: 4 }} style={{ alignItems: 'end' }}>
+                            <TextInput
                                 id="new-user-username"
-                                className="form-control"
+                                label="Username"
                                 value={newUsername}
-                                onChange={e => setNewUsername(e.target.value)}
+                                onChange={e => setNewUsername(e.currentTarget.value)}
                             />
-                        </div>
-                        <div className="col-md-4">
-                            <label className="form-label" htmlFor="new-user-password">Password</label>
-                            <input
+                            <PasswordInput
                                 id="new-user-password"
-                                type="password"
-                                className="form-control"
+                                label="Password"
                                 value={newPassword}
-                                onChange={e => setNewPassword(e.target.value)}
+                                onChange={e => setNewPassword(e.currentTarget.value)}
                             />
-                        </div>
-                        <div className="col-md-2">
-                            <label className="form-label" htmlFor="new-user-role">Access</label>
-                            <select
+                            <NativeSelect
                                 id="new-user-role"
-                                className="form-select"
+                                label="Access"
                                 value={newRole}
-                                onChange={e => setNewRole(e.target.value)}
-                            >
-                                <option value="user">User</option>
-                                <option value="administrator">Administrator</option>
-                            </select>
-                        </div>
-                        <div className="col-md-2 d-flex align-items-end">
-                            <button type="submit" className="btn btn-primary w-100">Add User</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                                onChange={e => setNewRole(e.currentTarget.value)}
+                                data={[
+                                    { value: 'user', label: 'User' },
+                                    { value: 'administrator', label: 'Administrator' },
+                                ]}
+                            />
+                            <Button type="submit" fullWidth>Add User</Button>
+                    </SimpleGrid>
+                </Box>
+            </Stack>
 
-            <div>
-                <h5>Existing Users</h5>
+            <Stack gap="sm">
+                <Title order={2} size="h5">Existing Users</Title>
                 {users.length === 0 ? (
-                    <p className="text-muted mb-0">No users found.</p>
+                    <Text c="dimmed">No users found.</Text>
                 ) : (
-                    <div className="list-group">
+                    <Stack gap="sm">
                         {users.map(user => (
-                            <div key={user.username} className="list-group-item">
-                                <div className="row g-3 align-items-end">
-                                    <div className="col-md-3">
-                                        <label className="form-label">Username</label>
-                                        <input className="form-control" value={user.username} disabled />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label">Access</label>
-                                        <select
-                                            className="form-select"
+                            <Card key={user.username} withBorder>
+                                <SimpleGrid cols={{ base: 1, md: 4 }} style={{ alignItems: 'end' }}>
+                                        <TextInput label="Username" value={user.username} disabled />
+                                        <NativeSelect
+                                            label="Access"
                                             value={user.role}
                                             onChange={e => {
-                                                const nextRole = e.target.value;
+                                                const nextRole = e.currentTarget.value;
                                                 setUsers(current =>
                                                     current.map(item => (
                                                         item.username === user.username
@@ -223,19 +219,16 @@ function UserManagementPage() {
                                                     ))
                                                 );
                                             }}
-                                        >
-                                            <option value="user">User</option>
-                                            <option value="administrator">Administrator</option>
-                                        </select>
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label">New Password</label>
-                                        <input
-                                            type="password"
-                                            className="form-control"
+                                            data={[
+                                                { value: 'user', label: 'User' },
+                                                { value: 'administrator', label: 'Administrator' },
+                                            ]}
+                                        />
+                                        <PasswordInput
+                                            label="New Password"
                                             value={passwordDrafts[user.username] || ''}
                                             onChange={e => {
-                                                const value = e.target.value;
+                                                const value = e.currentTarget.value;
                                                 setPasswordDrafts(current => ({
                                                     ...current,
                                                     [user.username]: value,
@@ -243,30 +236,28 @@ function UserManagementPage() {
                                             }}
                                             placeholder="Leave blank to keep"
                                         />
-                                    </div>
-                                    <div className="col-md-3 d-flex gap-2">
-                                        <button
-                                            type="button"
-                                            className="btn btn-success flex-fill"
+                                    <Group grow>
+                                        <Button
+                                            color="green"
                                             onClick={() => saveUser(user.username, user.role)}
                                         >
                                             Save
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline-danger flex-fill"
+                                        </Button>
+                                        <Button
+                                            color="red"
+                                            variant="light"
                                             onClick={() => deleteUser(user.username)}
                                         >
                                             Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                                        </Button>
+                                    </Group>
+                                </SimpleGrid>
+                            </Card>
                         ))}
-                    </div>
+                    </Stack>
                 )}
-            </div>
-        </div>
+            </Stack>
+        </Stack>
     );
 }
 

@@ -11,13 +11,13 @@ node_modules
 
 # production
 /build
+/client/build
 
 # misc
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env.*
+!.env.example
 
 npm-debug.log*
 yarn-debug.log*
@@ -28,8 +28,6 @@ server/data/*.sqlite
 server/data/*.sqlite-shm
 server/data/*.sqlite-wal
 
-# Local data / seed files (real classes, drivers, registrations, users) — keep private
-server/data/*.json
-
 # Restore/upload payload (real classes, drivers, registrations) — keep private
 raceplace-restore.json
+raceplace-backup-*.json
