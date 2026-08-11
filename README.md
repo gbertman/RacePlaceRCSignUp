@@ -98,3 +98,12 @@ On Render, mount a persistent disk and place the database on that disk, for exam
 ```text
 SQLITE_DB_FILE=/var/data/raceplace.sqlite
 ```
+
+Configure the Render web service from the repository root with:
+
+```text
+Build Command: npm run build
+Start Command: npm start
+```
+
+The build script explicitly installs the client's development dependencies because Vite is required to compile the production bundle. The running server uses only its production dependencies.
