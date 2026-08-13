@@ -385,13 +385,10 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             .instructions { margin: 0 0 0.1in; padding: 0.07in; border: 2px solid #000; font-size: 9pt; font-weight: 700; text-align: center; }
             table { width: 100%; border-collapse: collapse; table-layout: fixed; }
             th, td { border: 2px solid #000; padding: 0.03in; }
-            .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.03in 0.08in; margin-bottom: 0.1in; font-size: 7.5pt; }
-            .legend-item { overflow: hidden; border: 1px solid #000; padding: 0.025in 0.04in; white-space: nowrap; text-overflow: ellipsis; }
-            .legend-code { margin-right: 0.05in; font-weight: 700; }
             .signup { font-size: 8pt; }
             .many-classes .signup { font-size: 7pt; }
             .signup thead { display: table-header-group; }
-            .signup th { height: 0.34in; text-align: center; vertical-align: middle; }
+            .signup th { height: 0.58in; overflow-wrap: anywhere; text-align: center; vertical-align: middle; }
             .signup td { height: 0.27in; }
             .row-number { width: 0.32in; text-align: center; font-weight: 700; }
             .driver-name { width: 2.55in; text-align: left !important; font-size: 9pt; }
@@ -431,21 +428,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             instructions.textContent = 'PRINT ONE RACER NAME PER ROW. Write clearly inside the name box and make a large X inside every selected race box.';
             sheet.appendChild(instructions);
 
-            const legend = document.createElement('div');
-            legend.className = 'legend';
-            raceClasses.forEach((raceClass, index) => {
-                const item = document.createElement('div');
-                item.className = 'legend-item';
-                const code = document.createElement('span');
-                code.className = 'legend-code';
-                code.textContent = `C${index + 1}:`;
-                const description = document.createElement('span');
-                description.textContent = raceClass.name;
-                item.append(code, description);
-                legend.appendChild(item);
-            });
-            sheet.appendChild(legend);
-
             const signupTable = document.createElement('table');
             signupTable.className = 'signup';
             const signupHead = document.createElement('thead');
@@ -457,10 +439,10 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             nameHeader.className = 'driver-name';
             nameHeader.textContent = 'Racer Name (First Last or Last First)';
             headerRow.append(numberHeader, nameHeader);
-            raceClasses.forEach((_, index) => {
+            raceClasses.forEach((raceClass) => {
                 const classHeader = document.createElement('th');
                 classHeader.className = 'race-column';
-                classHeader.textContent = `C${index + 1}`;
+                classHeader.textContent = raceClass.name;
                 headerRow.appendChild(classHeader);
             });
             signupHead.appendChild(headerRow);
@@ -492,7 +474,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
 
             const footer = document.createElement('div');
             footer.className = 'footer';
-            footer.textContent = `RP-RC-1 | Track=${trackName} | ${raceClasses.map((raceClass, index) => `C${index + 1}=${raceClass.name}`).join(' | ')}`;
+            footer.textContent = `RP-RC-1 | Track=${trackName} | Classes: ${raceClasses.map(raceClass => raceClass.name).join(' | ')}`;
             sheet.appendChild(footer);
 
             document.body.appendChild(sheet);

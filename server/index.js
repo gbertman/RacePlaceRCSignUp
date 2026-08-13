@@ -625,7 +625,7 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
     const prompt = [
         'Read this photographed RacePlaceRC registration sheet.',
         `The verified track is: ${trackName}.`,
-        `The race columns, in printed order, are: ${classNames.map((name, index) => `C${index + 1}=${name}`).join('; ')}.`,
+        `Each race column is labeled with its full class name. From left to right, the columns are: ${classNames.join('; ')}.`,
         `Known driver names are: ${driverNames.length ? driverNames.join('; ') : '(none)'}.`,
         'Return only non-empty handwritten racer rows.',
         'Names may be written first-last or last-first. Use known drivers only as spelling evidence, never invent a person.',
