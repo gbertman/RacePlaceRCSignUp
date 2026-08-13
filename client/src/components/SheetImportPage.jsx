@@ -30,7 +30,7 @@ function normalizeName(value) {
 function resizeSheetImage(file) {
     return new Promise((resolve, reject) => {
         const imageUrl = URL.createObjectURL(file);
-        const image = new window.Image();
+        const image = document.createElement('img');
 
         image.onload = () => {
             const maxDimension = 2600;
