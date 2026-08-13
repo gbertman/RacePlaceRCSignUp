@@ -81,6 +81,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
     const [importResult, setImportResult] = useState(null);
     const cameraInputRef = useRef(null);
     const uploadInputRef = useRef(null);
+    const importResultRef = useRef(null);
     const {
         fetchAdmin,
         isAuthenticated,
@@ -101,6 +102,12 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
     useEffect(() => () => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
     }, [previewUrl]);
+
+    useEffect(() => {
+        if (importResult) {
+            importResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [importResult]);
 
     const duplicateNames = useMemo(() => {
         const counts = rows.reduce((result, row) => {
@@ -227,6 +234,16 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
         }]);
     };
 
+    const clearVerifiedSheet = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setSourceFile(null);
+        setPreviewUrl('');
+        setRows([]);
+        setRaceClasses([]);
+        setAnalysisModel('');
+        setHasAnalyzed(false);
+    };
+
     const commitImport = async () => {
         if (!includedRows.length || hasInvalidRows) return;
         setIsImporting(true);
@@ -251,6 +268,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
             }
             const result = await response.json();
             setImportResult(result);
+            clearVerifiedSheet();
             if (onRegistrationsChanged) onRegistrationsChanged();
         } catch (importError) {
             setError(importError.message);
@@ -305,18 +323,6 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
             </Group>
 
             {error ? <Alert color="red" role="alert">{error}</Alert> : null}
-            {importResult ? (
-                <Alert color="green" role="status">
-                    <Text>
-                        Imported {importResult.importedCount} racer{importResult.importedCount === 1 ? '' : 's'}.
-                        {' '}{importResult.newDriverCount} new driver{importResult.newDriverCount === 1 ? '' : 's'} added.
-                    </Text>
-                    <Button color="green" size="xs" mt="sm" onClick={downloadCsv}>
-                        Download {selectedTrack} CSV
-                    </Button>
-                </Alert>
-            ) : null}
-
             <Card withBorder>
                     <Group align="end" wrap="wrap">
                             <NativeSelect
@@ -390,6 +396,25 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                         </Stack>
                     ) : null}
             </Card>
+
+            {importResult ? (
+                <Box ref={importResultRef}>
+                    <Alert color="green" role="status" title="Verified import complete">
+                        <Text>
+                            Imported {importResult.importedCount} racer{importResult.importedCount === 1 ? '' : 's'}.
+                            {' '}{importResult.newDriverCount} new driver{importResult.newDriverCount === 1 ? '' : 's'} added.
+                        </Text>
+                        <Group mt="sm" gap="sm">
+                            <Button color="green" size="xs" onClick={downloadCsv}>
+                                Download {selectedTrack} CSV
+                            </Button>
+                            <Button component={Link} to="/admin" variant="default" size="xs">
+                                Return to Admin
+                            </Button>
+                        </Group>
+                    </Alert>
+                </Box>
+            ) : null}
 
             {hasAnalyzed ? (
                 <Stack component="section" aria-labelledby="verify-sheet-title" gap="md">
@@ -506,10 +531,12 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                         <Button
                             color="green"
                             loading={isImporting}
-                            disabled={isImporting || !includedRows.length || hasInvalidRows}
+                            disabled={isImporting || Boolean(importResult) || !includedRows.length || hasInvalidRows}
                             onClick={commitImport}
                         >
-                            {isImporting ? 'Importing...' : 'Confirm Verified Import'}
+                            {isImporting
+                                ? 'Importing...'
+                                : (importResult ? 'Import Complete' : 'Confirm Verified Import')}
                         </Button>
                         {hasInvalidRows ? (
                             <Text c="yellow.8" size="sm">
@@ -517,6 +544,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                             </Text>
                         ) : null}
                     </Group>
+
                 </Stack>
             ) : null}
 
