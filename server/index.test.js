@@ -64,9 +64,10 @@ test('grounds a reversed handwritten name in the existing driver list', () => {
             firstName: 'Shuma',
             lastName: 'Bran',
             nameConfidence: 0.7,
+            crossedOut: false,
             classSelections: [
-                { className: '17.5 Buggy', selected: true, confidence: 0.95 },
-                { className: 'Mod Buggy', selected: false, confidence: 0.9 },
+                { className: '17.5 Buggy', selected: true, crossedOut: false, confidence: 0.95 },
+                { className: 'Mod Buggy', selected: false, crossedOut: false, confidence: 0.9 },
             ],
             notes: '',
         }],
@@ -87,7 +88,8 @@ test('keeps an unmatched handwritten name as a provisional new driver', () => {
             firstName: 'Taylor',
             lastName: 'Racer',
             nameConfidence: 0.9,
-            classSelections: [{ className: 'Novice', selected: true, confidence: 0.9 }],
+            crossedOut: false,
+            classSelections: [{ className: 'Novice', selected: true, crossedOut: false, confidence: 0.9 }],
             notes: '',
         }],
     }, [{ name: 'Novice', type: 'Oval' }], [{ firstName: 'Brian', lastName: 'Shuma' }]);
@@ -100,7 +102,38 @@ test('constrains GPT race-class output to the selected track classes', () => {
     const schema = buildSheetExtractionSchema(['Novice', 'Stock'], 'Oval');
     const classNameSchema = schema.properties.rows.items.properties
         .classSelections.items.properties.className;
+    const classSelectionRequired = schema.properties.rows.items.properties
+        .classSelections.items.required;
 
     assert.deepEqual(classNameSchema.enum, ['Novice', 'Stock']);
+    assert.ok(classSelectionRequired.includes('crossedOut'));
+    assert.ok(schema.properties.rows.items.required.includes('crossedOut'));
     assert.deepEqual(schema.properties.trackName.enum, ['Oval']);
+});
+
+test('excludes a scratched-out row and removes scratched-out race marks by default', () => {
+    const [row] = prepareSheetRows({
+        rows: [{
+            rowNumber: 4,
+            rawName: 'Taylor Racer',
+            firstName: 'Taylor',
+            lastName: 'Racer',
+            nameConfidence: 0.95,
+            crossedOut: true,
+            classSelections: [
+                { className: 'Novice', selected: true, crossedOut: true, confidence: 0.9 },
+                { className: 'Stock', selected: true, crossedOut: false, confidence: 0.95 },
+            ],
+            notes: 'The row has a line through it',
+        }],
+    }, [
+        { name: 'Novice', type: 'Oval' },
+        { name: 'Stock', type: 'Oval' },
+    ], []);
+
+    assert.equal(row.crossedOut, true);
+    assert.equal(row.included, false);
+    assert.deepEqual(row.crossedOutClasses, ['Novice']);
+    assert.deepEqual(row.classes, ['Stock']);
+    assert.ok(row.warnings.includes('Racer row appears crossed out'));
 });

@@ -569,9 +569,10 @@ function buildSheetExtractionSchema(classNames, trackName) {
         properties: {
             className: { type: 'string', enum: classNames },
             selected: { type: 'boolean' },
+            crossedOut: { type: 'boolean' },
             confidence: { type: 'number' },
         },
-        required: ['className', 'selected', 'confidence'],
+        required: ['className', 'selected', 'crossedOut', 'confidence'],
     };
 
     return {
@@ -590,6 +591,7 @@ function buildSheetExtractionSchema(classNames, trackName) {
                         firstName: { type: 'string' },
                         lastName: { type: 'string' },
                         nameConfidence: { type: 'number' },
+                        crossedOut: { type: 'boolean' },
                         classSelections: {
                             type: 'array',
                             items: classSelection,
@@ -602,6 +604,7 @@ function buildSheetExtractionSchema(classNames, trackName) {
                         'firstName',
                         'lastName',
                         'nameConfidence',
+                        'crossedOut',
                         'classSelections',
                         'notes',
                     ],
@@ -627,11 +630,14 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
         `The verified track is: ${trackName}.`,
         `Each race column is labeled with its full class name. From left to right, the columns are: ${classNames.join('; ')}.`,
         `Known driver names are: ${driverNames.length ? driverNames.join('; ') : '(none)'}.`,
-        'Return only non-empty handwritten racer rows.',
+        'Return every non-empty handwritten racer row, including rows that were crossed out.',
         'Names may be written first-last or last-first. Use known drivers only as spelling evidence, never invent a person.',
         'Preserve an unknown handwritten name as closely as possible and split it into likely firstName and lastName.',
-        'For every returned row, include every supplied race class once, in order, with selected true only for a clear handwritten mark in that cell.',
-        'Confidence values must be between 0 and 1. Use notes for ambiguity, crossed-out rows, or unclear marks.',
+        'Set the row crossedOut field true only when the racer name or the entire row is clearly scratched through or canceled.',
+        'For every returned row, include every supplied race class once and in order.',
+        'For a race cell, set selected true only for a clear active mark. Set crossedOut true when a previous mark was clearly scratched out or canceled, and set selected false for that cell.',
+        'A race selection cannot be both selected and crossedOut. Use false for both when the cell is blank.',
+        'Confidence values must be between 0 and 1. Use notes for ambiguous scratch-outs, overwritten marks, or unclear handwriting.',
     ].join('\n');
 
     const response = await client.responses.create({
@@ -682,13 +688,19 @@ function prepareSheetRows(extraction, raceClasses, drivers) {
             const hasClearMatch = bestSuggestion?.similarity >= 0.88 &&
                 (!runnerUp || bestSuggestion.similarity - runnerUp.similarity >= 0.08);
             const classes = (Array.isArray(row.classSelections) ? row.classSelections : [])
-                .filter(item => item?.selected && availableClassNames.has(item.className))
+                .filter(item => item?.selected && !item?.crossedOut && availableClassNames.has(item.className))
+                .map(item => item.className);
+            const crossedOutClasses = (Array.isArray(row.classSelections) ? row.classSelections : [])
+                .filter(item => item?.crossedOut && availableClassNames.has(item.className))
                 .map(item => item.className);
             const lowConfidenceMarks = (Array.isArray(row.classSelections) ? row.classSelections : [])
-                .filter(item => item?.selected && Number(item.confidence) < 0.7)
+                .filter(item => (item?.selected || item?.crossedOut) && Number(item.confidence) < 0.7)
                 .map(item => item.className);
             const warnings = [];
+            const crossedOut = row.crossedOut === true;
 
+            if (crossedOut) warnings.push('Racer row appears crossed out');
+            if (crossedOutClasses.length) warnings.push(`Crossed-out race marks: ${crossedOutClasses.join(', ')}`);
             if (Number(row.nameConfidence) < 0.75) warnings.push('Check the handwritten name');
             if (lowConfidenceMarks.length) warnings.push(`Check race marks: ${lowConfidenceMarks.join(', ')}`);
             if (!classes.length) warnings.push('No race class was selected');
@@ -702,13 +714,15 @@ function prepareSheetRows(extraction, raceClasses, drivers) {
                 lastName: hasClearMatch ? bestSuggestion.lastName : lastName,
                 nameConfidence: Math.max(0, Math.min(1, Number(row.nameConfidence) || 0)),
                 classes: [...new Set(classes)],
+                crossedOut,
+                crossedOutClasses: [...new Set(crossedOutClasses)],
                 existingDriver: hasClearMatch ? {
                     firstName: bestSuggestion.firstName,
                     lastName: bestSuggestion.lastName,
                 } : null,
                 suggestions,
                 isNewDriver: !hasClearMatch,
-                included: true,
+                included: !crossedOut,
                 notes: String(row.notes || '').trim(),
                 warnings,
             };

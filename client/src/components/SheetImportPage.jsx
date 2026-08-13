@@ -8,7 +8,7 @@ import {
     Card,
     Checkbox,
     Group,
-    Image,
+    Image as MantineImage,
     NativeSelect,
     SimpleGrid,
     Stack,
@@ -30,7 +30,7 @@ function normalizeName(value) {
 function resizeSheetImage(file) {
     return new Promise((resolve, reject) => {
         const imageUrl = URL.createObjectURL(file);
-        const image = new Image();
+        const image = new window.Image();
 
         image.onload = () => {
             const maxDimension = 2600;
@@ -216,6 +216,8 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
             lastName: '',
             nameConfidence: 1,
             classes: [],
+            crossedOut: false,
+            crossedOutClasses: [],
             existingDriver: null,
             suggestions: [],
             isNewDriver: true,
@@ -371,7 +373,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
 
                     {previewUrl ? (
                         <Stack mt="md" align="flex-start">
-                            <Image
+                            <MantineImage
                                 src={previewUrl}
                                 alt="Registration sheet awaiting analysis"
                                 radius="md"
@@ -422,6 +424,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                                             <div>
                                                 <Text fw={700}>Sheet row {row.rowNumber || rowIndex + 1}</Text>
                                                 {row.rawName ? <Text c="dimmed" size="sm">GPT read: {row.rawName}</Text> : null}
+                                                {row.crossedOut ? <Badge color="red" mt="xs">Scratch-out detected — excluded</Badge> : null}
                                             </div>
                                                 <Switch
                                                     id={`include-row-${row.id}`}
