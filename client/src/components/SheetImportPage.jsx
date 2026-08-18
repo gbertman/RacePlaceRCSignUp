@@ -10,15 +10,14 @@ import {
     Group,
     Image as MantineImage,
     NativeSelect,
-    SimpleGrid,
     Stack,
     Switch,
     Text,
-    TextInput,
     Title,
     VisuallyHidden,
 } from '@mantine/core';
 import { Link } from 'react-router-dom';
+import DriverLookup from './DriverLookup';
 import useAdminSession from '../hooks/useAdminSession';
 
 const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -165,7 +164,10 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
             }
 
             const data = await response.json();
-            setRows(Array.isArray(data.rows) ? data.rows : []);
+            setRows(Array.isArray(data.rows) ? data.rows.map(row => ({
+                ...row,
+                nameInput: `${row.firstName || ''} ${row.lastName || ''}`.trim(),
+            })) : []);
             setRaceClasses(Array.isArray(data.raceClasses) ? data.raceClasses : []);
             setAnalysisModel(data.model || 'GPT');
             setHasAnalyzed(true);
@@ -185,9 +187,13 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
         )));
     };
 
-    const updateName = (id, field, value) => {
+    const updateName = (id, value) => {
+        const normalizedName = value.trim().replace(/\s+/g, ' ');
+        const [firstName = '', ...lastNameParts] = normalizedName ? normalizedName.split(' ') : [];
         updateRow(id, {
-            [field]: value,
+            nameInput: value,
+            firstName,
+            lastName: lastNameParts.join(' '),
             existingDriver: null,
             isNewDriver: true,
             warnings: [],
@@ -196,11 +202,13 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
 
     const selectSuggestion = (id, suggestion) => {
         updateRow(id, {
+            nameInput: `${suggestion.firstName} ${suggestion.lastName}`,
             firstName: suggestion.firstName,
             lastName: suggestion.lastName,
             existingDriver: {
                 firstName: suggestion.firstName,
                 lastName: suggestion.lastName,
+                nickname: suggestion.nickname || '',
             },
             isNewDriver: false,
             warnings: [],
@@ -219,6 +227,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
             id: `manual-${Date.now()}-${current.length}`,
             rowNumber: current.length + 1,
             rawName: '',
+            nameInput: '',
             firstName: '',
             lastName: '',
             nameConfidence: 1,
@@ -460,20 +469,12 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                                         </Group>
 
                                         <Box component="fieldset" disabled={!row.included} className="mantine-fieldset-reset">
-                                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                                    <TextInput
-                                                        id={`first-name-${row.id}`}
-                                                        label="First name"
-                                                        value={row.firstName}
-                                                        onChange={event => updateName(row.id, 'firstName', event.currentTarget.value)}
-                                                    />
-                                                    <TextInput
-                                                        id={`last-name-${row.id}`}
-                                                        label="Last name"
-                                                        value={row.lastName}
-                                                        onChange={event => updateName(row.id, 'lastName', event.currentTarget.value)}
-                                                    />
-                                            </SimpleGrid>
+                                            <DriverLookup
+                                                description="Correct the name here. Matching drivers appear as you type a first name, last name, or nickname."
+                                                value={row.nameInput ?? `${row.firstName} ${row.lastName}`.trim()}
+                                                onChange={value => updateName(row.id, value)}
+                                                onSelect={driver => selectSuggestion(row.id, driver)}
+                                            />
 
                                             {row.suggestions?.length ? (
                                                 <Group mt="sm" gap="xs">
@@ -485,7 +486,9 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                                                             size="xs"
                                                             onClick={() => selectSuggestion(row.id, suggestion)}
                                                         >
-                                                            {suggestion.firstName} {suggestion.lastName}
+                                                            {suggestion.firstName}
+                                                            {suggestion.nickname ? ` “${suggestion.nickname}” ` : ' '}
+                                                            {suggestion.lastName}
                                                         </Button>
                                                     ))}
                                                 </Group>

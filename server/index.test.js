@@ -12,9 +12,11 @@ process.env.SQLITE_DB_FILE = path.join(testDataDirectory, 'test.sqlite');
 const {
     buildSheetExtractionSchema,
     closeDatabase,
+    ensureDriverNicknameColumn,
     normalizeMatchText,
     prepareSheetRows,
     replaceClassesForType,
+    server,
 } = require('./index');
 
 after(() => {
@@ -30,6 +32,70 @@ test('creates the default admin account for an empty database', () => {
     assert.equal(user.username, 'admin');
     assert.equal(user.role, 'administrator');
     assert.equal(bcrypt.compareSync('admin', user.password), true);
+});
+
+test('adds a separate nickname column to an existing drivers table without losing names', () => {
+    const legacyFile = path.join(testDataDirectory, 'legacy.sqlite');
+    const legacyDb = new Database(legacyFile);
+    legacyDb.exec(`
+        CREATE TABLE drivers (
+            firstName TEXT NOT NULL COLLATE NOCASE,
+            lastName TEXT NOT NULL COLLATE NOCASE,
+            PRIMARY KEY (firstName, lastName)
+        )
+    `);
+    legacyDb.prepare('INSERT INTO drivers (firstName, lastName) VALUES (?, ?)').run('Gene', 'Bertman');
+
+    ensureDriverNicknameColumn(legacyDb);
+
+    const columns = legacyDb.prepare('PRAGMA table_info(drivers)').all();
+    const driver = legacyDb.prepare('SELECT firstName, lastName, nickname FROM drivers').get();
+    legacyDb.close();
+
+    assert.ok(columns.some(column => column.name === 'nickname'));
+    assert.deepEqual(driver, { firstName: 'Gene', lastName: 'Bertman', nickname: '' });
+});
+
+test('creates, updates, and searches a driver by nickname', async () => {
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+        const loginResponse = await fetch(`${baseUrl}/admin/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: 'admin', password: 'admin' }),
+        });
+        const cookie = loginResponse.headers.get('set-cookie').split(';')[0];
+
+        const createResponse = await fetch(`${baseUrl}/drivers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Cookie: cookie },
+            body: JSON.stringify({ firstName: 'Casey', lastName: 'Racer', nickname: 'Quick' }),
+        });
+        assert.equal(createResponse.status, 200);
+
+        const initialMatches = await fetch(`${baseUrl}/drivers?name=quick`).then(response => response.json());
+        assert.equal(initialMatches.length, 1);
+        assert.equal(initialMatches[0].nickname, 'Quick');
+
+        const updateResponse = await fetch(`${baseUrl}/drivers`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Cookie: cookie },
+            body: JSON.stringify({ firstName: 'Casey', lastName: 'Racer', nickname: 'Rocket' }),
+        });
+        assert.equal(updateResponse.status, 200);
+
+        const updatedMatches = await fetch(`${baseUrl}/drivers?name=rocket`).then(response => response.json());
+        assert.equal(updatedMatches.length, 1);
+        assert.deepEqual(updatedMatches[0], { firstName: 'Casey', lastName: 'Racer', nickname: 'Rocket' });
+    } finally {
+        await new Promise(resolve => server.close(resolve));
+    }
 });
 
 test('replaces one track class group without changing Mini-Z', () => {
@@ -78,6 +144,32 @@ test('grounds a reversed handwritten name in the existing driver list', () => {
     assert.equal(row.lastName, 'Shuma');
     assert.equal(row.isNewDriver, false);
     assert.deepEqual(row.classes, ['17.5 Buggy']);
+});
+
+test('grounds a handwritten nickname in the existing driver list', () => {
+    const [row] = prepareSheetRows({
+        rows: [{
+            rowNumber: 2,
+            rawName: 'Rocket Shuma',
+            firstName: 'Rocket',
+            lastName: 'Shuma',
+            nameConfidence: 0.8,
+            crossedOut: false,
+            classSelections: [
+                { className: '17.5 Buggy', selected: true, crossedOut: false, confidence: 0.95 },
+            ],
+            notes: '',
+        }],
+    }, [{ name: '17.5 Buggy', type: 'Off Road' }], [{
+        firstName: 'Brian',
+        lastName: 'Shuma',
+        nickname: 'Rocket',
+    }]);
+
+    assert.equal(row.firstName, 'Brian');
+    assert.equal(row.lastName, 'Shuma');
+    assert.equal(row.existingDriver.nickname, 'Rocket');
+    assert.equal(row.isNewDriver, false);
 });
 
 test('keeps an unmatched handwritten name as a provisional new driver', () => {

@@ -80,10 +80,15 @@
   color: #4b5563;
 }
 
+.driver-match-field {
+  position: relative;
+  z-index: 20;
+}
+
 .driver-match-list {
   position: absolute;
   z-index: 200;
-  top: calc(100% - 1.25rem);
+  top: calc(100% + 0.35rem);
   right: 0;
   left: 0;
   max-height: 16rem;

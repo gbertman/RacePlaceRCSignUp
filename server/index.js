@@ -65,6 +65,7 @@ function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS drivers (
             firstName TEXT NOT NULL COLLATE NOCASE,
             lastName TEXT NOT NULL COLLATE NOCASE,
+            nickname TEXT NOT NULL DEFAULT '',
             PRIMARY KEY (firstName, lastName)
         );
         CREATE TABLE IF NOT EXISTS registrations (
@@ -75,7 +76,15 @@ function initializeDatabase() {
             classes TEXT NOT NULL
         );
     `);
+    ensureDriverNicknameColumn(db);
     ensureInitialAdmin();
+}
+
+function ensureDriverNicknameColumn(database) {
+    const driverColumns = database.prepare('PRAGMA table_info(drivers)').all();
+    if (!driverColumns.some(column => column.name === 'nickname')) {
+        database.exec("ALTER TABLE drivers ADD COLUMN nickname TEXT NOT NULL DEFAULT ''");
+    }
 }
 
 function ensureInitialAdmin() {
@@ -120,11 +129,11 @@ function readTrackTypes() {
 }
 
 function readDrivers() {
-    return db.prepare('SELECT firstName, lastName FROM drivers ORDER BY lastName, firstName').all();
+    return db.prepare("SELECT firstName, lastName, COALESCE(nickname, '') AS nickname FROM drivers ORDER BY lastName, firstName").all();
 }
 
 function findDriversByLastName(lastName) {
-    return db.prepare('SELECT firstName, lastName FROM drivers WHERE lastName = ? ORDER BY firstName').all(lastName);
+    return db.prepare("SELECT firstName, lastName, COALESCE(nickname, '') AS nickname FROM drivers WHERE lastName = ? ORDER BY firstName").all(lastName);
 }
 
 function readRegistrations() {
@@ -194,13 +203,22 @@ function deleteDriverByName(firstName, lastName) {
         .run(firstName, lastName).changes > 0;
 }
 
-function addDriverIfMissing(firstName, lastName) {
+function addDriverIfMissing(firstName, lastName, nickname = '') {
     const normalizedFirstName = (firstName || '').trim();
     const normalizedLastName = (lastName || '').trim();
+    const normalizedNickname = (nickname || '').trim();
     if (!normalizedFirstName || !normalizedLastName) return;
 
-    db.prepare('INSERT OR IGNORE INTO drivers (firstName, lastName) VALUES (?, ?)')
-        .run(normalizedFirstName, normalizedLastName);
+    db.prepare(`
+        INSERT INTO drivers (firstName, lastName, nickname) VALUES (?, ?, ?)
+        ON CONFLICT(firstName, lastName) DO UPDATE SET nickname =
+            CASE WHEN excluded.nickname <> '' THEN excluded.nickname ELSE drivers.nickname END
+    `).run(normalizedFirstName, normalizedLastName, normalizedNickname);
+}
+
+function updateDriverNickname(firstName, lastName, nickname) {
+    return db.prepare('UPDATE drivers SET nickname = ? WHERE firstName = ? AND lastName = ?')
+        .run((nickname || '').trim(), firstName, lastName).changes > 0;
 }
 
 function replaceAllClasses(list) {
@@ -247,14 +265,15 @@ function replaceAllTrackTypes(types) {
 }
 
 function replaceAllDrivers(drivers) {
-    const insert = db.prepare('INSERT OR IGNORE INTO drivers (firstName, lastName) VALUES (?, ?)');
+    const insert = db.prepare('INSERT OR IGNORE INTO drivers (firstName, lastName, nickname) VALUES (?, ?, ?)');
     const transaction = db.transaction((items) => {
         db.prepare('DELETE FROM drivers').run();
         for (const driver of items) {
             const firstName = (driver?.firstName || '').trim();
             const lastName = (driver?.lastName || '').trim();
+            const nickname = (driver?.nickname || '').trim();
             if (firstName && lastName) {
-                insert.run(firstName, lastName);
+                insert.run(firstName, lastName, nickname);
             }
         }
     });
@@ -282,7 +301,7 @@ function replaceAllRegistrations(regs) {
 
 function replaceDriversAndRegistrations(drivers, regs) {
     const insertDriver = db.prepare(
-        'INSERT OR IGNORE INTO drivers (firstName, lastName) VALUES (?, ?)'
+        'INSERT OR IGNORE INTO drivers (firstName, lastName, nickname) VALUES (?, ?, ?)'
     );
     const insertRegistration = db.prepare(
         'INSERT OR REPLACE INTO registrations (name, firstName, lastName, registeredAt, classes) VALUES (?, ?, ?, ?, ?)'
@@ -292,8 +311,9 @@ function replaceDriversAndRegistrations(drivers, regs) {
         for (const driver of drivers) {
             const firstName = (driver?.firstName || '').trim();
             const lastName = (driver?.lastName || '').trim();
+            const nickname = (driver?.nickname || '').trim();
             if (firstName && lastName) {
-                insertDriver.run(firstName, lastName);
+                insertDriver.run(firstName, lastName, nickname);
             }
         }
 
@@ -537,16 +557,33 @@ function levenshteinDistance(left, right) {
     return previous[b.length];
 }
 
+function driverNameVariants(driver) {
+    const nickname = String(driver.nickname || '').trim();
+    return [
+        `${driver.firstName} ${driver.lastName}`,
+        `${driver.lastName} ${driver.firstName}`,
+        nickname,
+        nickname ? `${nickname} ${driver.lastName}` : '',
+        nickname ? `${driver.lastName} ${nickname}` : '',
+        nickname ? `${driver.firstName} ${nickname} ${driver.lastName}` : '',
+    ].filter(Boolean);
+}
+
 function driverSimilarity(candidateName, driver) {
-    const forward = `${driver.firstName} ${driver.lastName}`;
-    const reverse = `${driver.lastName} ${driver.firstName}`;
     const candidate = normalizeMatchText(candidateName);
-    const distance = Math.min(
-        levenshteinDistance(candidate, forward),
-        levenshteinDistance(candidate, reverse)
-    );
-    const length = Math.max(candidate.length, normalizeMatchText(forward).length, 1);
-    return Math.max(0, 1 - (distance / length));
+    return Math.max(...driverNameVariants(driver).map(variant => {
+        const normalizedVariant = normalizeMatchText(variant);
+        const distance = levenshteinDistance(candidate, normalizedVariant);
+        const length = Math.max(candidate.length, normalizedVariant.length, 1);
+        return Math.max(0, 1 - (distance / length));
+    }));
+}
+
+function findExactDriver(candidateName, drivers) {
+    const candidate = normalizeMatchText(candidateName);
+    if (!candidate) return null;
+    return drivers.find(driver => driverNameVariants(driver)
+        .some(variant => normalizeMatchText(variant) === candidate)) || null;
 }
 
 function findDriverSuggestions(firstName, lastName, rawName, drivers) {
@@ -555,6 +592,7 @@ function findDriverSuggestions(firstName, lastName, rawName, drivers) {
         .map(driver => ({
             firstName: driver.firstName,
             lastName: driver.lastName,
+            nickname: driver.nickname || '',
             similarity: driverSimilarity(candidateName, driver),
         }))
         .filter(driver => driver.similarity >= 0.55)
@@ -623,7 +661,12 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
     }
 
     const classNames = raceClasses.map(item => item.name);
-    const driverNames = drivers.map(driver => `${driver.firstName} ${driver.lastName}`);
+    const driverNames = drivers.map(driver => {
+        const nickname = String(driver.nickname || '').trim();
+        return nickname
+            ? `${driver.firstName} ${driver.lastName} (nickname: ${nickname})`
+            : `${driver.firstName} ${driver.lastName}`;
+    });
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const prompt = [
         'Read this photographed RacePlaceRC registration sheet.',
@@ -719,6 +762,7 @@ function prepareSheetRows(extraction, raceClasses, drivers) {
                 existingDriver: hasClearMatch ? {
                     firstName: bestSuggestion.firstName,
                     lastName: bestSuggestion.lastName,
+                    nickname: bestSuggestion.nickname || '',
                 } : null,
                 suggestions,
                 isNewDriver: !hasClearMatch,
@@ -899,7 +943,7 @@ app.get('/drivers', (req, res) => {
     if (name) {
         const terms = name.split(/\s+/);
         const matches = drivers.filter(driver => {
-            const nameParts = [driver.firstName, driver.lastName]
+            const nameParts = [driver.firstName, driver.lastName, driver.nickname]
                 .map(part => (part || '').trim().toLowerCase());
             return terms.every(term => nameParts.some(part => part.includes(term)));
         });
@@ -912,11 +956,30 @@ app.get('/drivers', (req, res) => {
 });
 
 app.post('/drivers', requireAuthenticated, (req, res) => {
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, nickname } = req.body;
     if (!firstName || !lastName) {
         return res.status(400).json({ error: 'firstName and lastName are required' });
     }
-    addDriverIfMissing(firstName, lastName);
+    if (String(nickname || '').trim().length > 80) {
+        return res.status(400).json({ error: 'nickname must be 80 characters or fewer' });
+    }
+    addDriverIfMissing(firstName, lastName, nickname);
+    res.json({ success: true });
+});
+
+app.put('/drivers', requireAuthenticated, (req, res) => {
+    const firstName = String(req.body?.firstName || '').trim();
+    const lastName = String(req.body?.lastName || '').trim();
+    const nickname = String(req.body?.nickname || '').trim();
+    if (!firstName || !lastName) {
+        return res.status(400).json({ error: 'firstName and lastName are required' });
+    }
+    if (nickname.length > 80) {
+        return res.status(400).json({ error: 'nickname must be 80 characters or fewer' });
+    }
+    if (!updateDriverNickname(firstName, lastName, nickname)) {
+        return res.status(404).json({ error: 'Driver not found' });
+    }
     res.json({ success: true });
 });
 
@@ -1017,16 +1080,13 @@ app.post('/admin/sheet-import/commit', requireAuthenticated, (req, res) => {
 
         verifiedRows.forEach(row => {
             const submittedName = `${row.firstName} ${row.lastName}`;
-            const normalizedSubmittedName = normalizeMatchText(submittedName);
-            const existingDriver = drivers.find(driver =>
-                normalizeMatchText(`${driver.firstName} ${driver.lastName}`) === normalizedSubmittedName
-            );
+            const existingDriver = findExactDriver(submittedName, drivers);
             const canonicalFirstName = existingDriver?.firstName || row.firstName;
             const canonicalLastName = existingDriver?.lastName || row.lastName;
             const canonicalName = `${canonicalFirstName} ${canonicalLastName}`;
 
             if (!existingDriver) {
-                drivers.push({ firstName: canonicalFirstName, lastName: canonicalLastName });
+                drivers.push({ firstName: canonicalFirstName, lastName: canonicalLastName, nickname: '' });
                 newDriverCount += 1;
             }
 
@@ -1132,8 +1192,11 @@ app.delete('/registrations/:name', requireAuthenticated, (req, res) => {
 
 app.post('/register', (req, res) => {
     const { firstName, lastName, classes, originalName } = req.body;
-    const normalizedFirstName = (firstName || '').trim();
-    const normalizedLastName = (lastName || '').trim();
+    const submittedFirstName = (firstName || '').trim();
+    const submittedLastName = (lastName || '').trim();
+    const existingDriver = findExactDriver(`${submittedFirstName} ${submittedLastName}`, readDrivers());
+    const normalizedFirstName = existingDriver?.firstName || submittedFirstName;
+    const normalizedLastName = existingDriver?.lastName || submittedLastName;
     const name = `${normalizedFirstName} ${normalizedLastName}`.trim();
     const enabledTrackTypes = getEnabledTrackTypes();
     const availableClasses = readClasses()
@@ -1232,6 +1295,7 @@ module.exports = {
     app,
     buildSheetExtractionSchema,
     closeDatabase,
+    ensureDriverNicknameColumn,
     normalizeMatchText,
     prepareSheetRows,
     replaceClassesForType,

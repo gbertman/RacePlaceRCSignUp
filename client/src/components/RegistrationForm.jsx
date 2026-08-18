@@ -15,6 +15,27 @@ import {
     UnstyledButton,
 } from '@mantine/core';
 
+function formatDriverName(driver) {
+    const nickname = String(driver?.nickname || '').trim();
+    return nickname
+        ? `${driver.firstName} “${nickname}” ${driver.lastName}`
+        : `${driver.firstName} ${driver.lastName}`;
+}
+
+function driverMatchesEnteredName(driver, enteredName) {
+    const nickname = String(driver.nickname || '').trim();
+    const variants = [
+        `${driver.firstName} ${driver.lastName}`,
+        `${driver.lastName} ${driver.firstName}`,
+        nickname,
+        nickname ? `${nickname} ${driver.lastName}` : '',
+        nickname ? `${driver.lastName} ${nickname}` : '',
+        nickname ? `${driver.firstName} ${nickname} ${driver.lastName}` : '',
+    ];
+    const normalizedEnteredName = enteredName.toLowerCase();
+    return variants.some(variant => variant.toLowerCase() === normalizedEnteredName);
+}
+
 function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     const [nameInput, setNameInput] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -177,11 +198,9 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
     const submit = (e) => {
         e.preventDefault();
         const enteredName = nameInput.trim().replace(/\s+/g, ' ');
-        const exactDriver = driverMatch || driverMatches.find(driver => {
-            const forward = `${driver.firstName} ${driver.lastName}`.toLowerCase();
-            const reverse = `${driver.lastName} ${driver.firstName}`.toLowerCase();
-            return enteredName.toLowerCase() === forward || enteredName.toLowerCase() === reverse;
-        });
+        const exactDriver = driverMatch || driverMatches.find(driver =>
+            driverMatchesEnteredName(driver, enteredName)
+        );
         const [enteredFirstName, ...enteredLastNameParts] = enteredName.split(' ');
         const resolvedFirstName = exactDriver?.firstName || enteredFirstName;
         const resolvedLastName = exactDriver?.lastName || enteredLastNameParts.join(' ');
@@ -246,7 +265,7 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
           <Stack gap="lg">
             <Title order={2} size="h4">{editing ? 'Edit Signup' : 'Signup'}</Title>
             <Box
-                pos="relative"
+                className="driver-match-field"
                 onBlur={e => {
                     if (!e.currentTarget.contains(e.relatedTarget)) {
                         setShowDriverMatches(false);
@@ -292,14 +311,14 @@ function RegistrationForm({ classes, onSave, editing, registrationOpen }) {
                                 onClick={() => applyDriverSelection(driver)}
                                 onMouseEnter={() => setActiveDriverIndex(index)}
                             >
-                                {driver.firstName} {driver.lastName}
+                                {formatDriverName(driver)}
                             </UnstyledButton>
                         ))}
                     </Paper>
                 ) : null}
                 {driverMatch ? (
                     <Text size="sm" c="green" mt={4}>
-                        Selected driver: {driverMatch.firstName} {driverMatch.lastName}
+                        Selected driver: {formatDriverName(driverMatch)}
                     </Text>
                 ) : null}
             </Box>

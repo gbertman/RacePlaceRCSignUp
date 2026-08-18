@@ -26,6 +26,8 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     const [isDriverModalOpen, setDriverModalOpen] = useState(false);
     const [newDriverFirst, setNewDriverFirst] = useState('');
     const [newDriverLast, setNewDriverLast] = useState('');
+    const [newDriverNickname, setNewDriverNickname] = useState('');
+    const [driverNicknameDrafts, setDriverNicknameDrafts] = useState({});
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -130,7 +132,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 throw new Error(await readError(response, `Failed to load drivers: ${response.status}`));
             }
             const data = await response.json();
-            setDrivers(Array.isArray(data) ? data : []);
+            const nextDrivers = Array.isArray(data) ? data : [];
+            setDrivers(nextDrivers);
+            setDriverNicknameDrafts(Object.fromEntries(nextDrivers.map(driver => [
+                `${driver.firstName}\u0000${driver.lastName}`,
+                driver.nickname || '',
+            ])));
         } catch (error) {
             console.error('Unable to load drivers:', error);
             setDrivers([]);
@@ -181,16 +188,42 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             const response = await fetchAdmin('/drivers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ firstName: newDriverFirst.trim(), lastName: newDriverLast.trim() }),
+                body: JSON.stringify({
+                    firstName: newDriverFirst.trim(),
+                    lastName: newDriverLast.trim(),
+                    nickname: newDriverNickname.trim(),
+                }),
             });
             if (!response.ok) {
                 throw new Error(await readError(response, `Failed to add driver: ${response.status}`));
             }
             setNewDriverFirst('');
             setNewDriverLast('');
+            setNewDriverNickname('');
             loadDrivers();
         } catch (error) {
             window.alert(`Unable to add driver: ${error.message}`);
+        }
+    };
+
+    const saveDriverNickname = async (driver) => {
+        const key = `${driver.firstName}\u0000${driver.lastName}`;
+        try {
+            const response = await fetchAdmin('/drivers', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    firstName: driver.firstName,
+                    lastName: driver.lastName,
+                    nickname: (driverNicknameDrafts[key] || '').trim(),
+                }),
+            });
+            if (!response.ok) {
+                throw new Error(await readError(response, `Failed to save nickname: ${response.status}`));
+            }
+            loadDrivers();
+        } catch (error) {
+            window.alert(`Unable to save nickname: ${error.message}`);
         }
     };
 
@@ -719,6 +752,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                                         value={newDriverLast}
                                         onChange={e => setNewDriverLast(e.currentTarget.value)}
                                     />
+                                    <TextInput
+                                        label="Nickname"
+                                        description="Optional; stored separately and included in name searches."
+                                        value={newDriverNickname}
+                                        onChange={e => setNewDriverNickname(e.currentTarget.value)}
+                                    />
                                 <Button onClick={addDriver} style={{ alignSelf: 'flex-start' }}>
                                     Add Driver
                                 </Button>
@@ -730,19 +769,34 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                                         <Stack gap="xs">
                                             {drivers.map((d, idx) => (
                                                 <Card key={`${d.lastName}-${idx}`} withBorder padding="xs">
-                                                  <Group justify="space-between">
-                                                    <Text>
-                                                        {d.firstName} {d.lastName}
-                                                    </Text>
-                                                    <Button
-                                                        size="xs"
-                                                        color="red"
-                                                        variant="light"
-                                                        onClick={() => deleteDriver(d.firstName, d.lastName)}
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                  </Group>
+                                                  <Stack gap="xs">
+                                                    <Text fw={600}>{d.firstName} {d.lastName}</Text>
+                                                    <Group align="end" wrap="wrap">
+                                                        <TextInput
+                                                            label="Nickname"
+                                                            value={driverNicknameDrafts[`${d.firstName}\u0000${d.lastName}`] ?? d.nickname ?? ''}
+                                                            onChange={event => {
+                                                                const key = `${d.firstName}\u0000${d.lastName}`;
+                                                                setDriverNicknameDrafts(current => ({
+                                                                    ...current,
+                                                                    [key]: event.currentTarget.value,
+                                                                }));
+                                                            }}
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                        <Button size="xs" onClick={() => saveDriverNickname(d)}>
+                                                            Save
+                                                        </Button>
+                                                        <Button
+                                                            size="xs"
+                                                            color="red"
+                                                            variant="light"
+                                                            onClick={() => deleteDriver(d.firstName, d.lastName)}
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    </Group>
+                                                  </Stack>
                                                 </Card>
                                             ))}
                                         </Stack>
