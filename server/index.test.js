@@ -8,8 +8,10 @@ const Database = require('better-sqlite3');
 
 const testDataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'raceplace-tests-'));
 process.env.SQLITE_DB_FILE = path.join(testDataDirectory, 'test.sqlite');
+process.env.SKIP_BUNDLED_DATA_MIGRATIONS = 'true';
 
 const {
+    applyDataMigration,
     buildSheetExtractionSchema,
     closeDatabase,
     ensureDriverNicknameColumn,
@@ -18,6 +20,8 @@ const {
     replaceClassesForType,
     server,
 } = require('./index');
+
+const liveSystemMigration = require('./migrations/2026-09-11-live-system.json');
 
 after(() => {
     closeDatabase();
@@ -54,6 +58,53 @@ test('adds a separate nickname column to an existing drivers table without losin
 
     assert.ok(columns.some(column => column.name === 'nickname'));
     assert.deepEqual(driver, { firstName: 'Gene', lastName: 'Bertman', nickname: '' });
+});
+
+test('applies the tracked live-system roster and class migration once', () => {
+    const migrationFile = path.join(testDataDirectory, 'migration.sqlite');
+    const migrationDb = new Database(migrationFile);
+    migrationDb.exec(`
+        CREATE TABLE classes (name TEXT PRIMARY KEY, type TEXT NOT NULL);
+        CREATE TABLE track (name TEXT PRIMARY KEY, enabled INTEGER NOT NULL);
+        CREATE TABLE drivers (
+            firstName TEXT NOT NULL COLLATE NOCASE,
+            lastName TEXT NOT NULL COLLATE NOCASE,
+            nickname TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (firstName, lastName)
+        );
+        CREATE TABLE registrations (
+            name TEXT PRIMARY KEY,
+            firstName TEXT NOT NULL,
+            lastName TEXT NOT NULL,
+            registeredAt TEXT NOT NULL,
+            classes TEXT NOT NULL
+        );
+    `);
+    migrationDb.prepare('INSERT INTO classes (name, type) VALUES (?, ?)').run('GT12', 'On Road');
+    migrationDb.prepare(
+        'INSERT INTO registrations (name, firstName, lastName, registeredAt, classes) VALUES (?, ?, ?, ?, ?)'
+    ).run('Test Racer', 'Test', 'Racer', new Date().toISOString(), JSON.stringify(['GT12', 'Old Class']));
+
+    assert.equal(applyDataMigration(migrationDb, liveSystemMigration), true);
+    assert.equal(applyDataMigration(migrationDb, liveSystemMigration), false);
+
+    const classNames = migrationDb.prepare('SELECT name FROM classes').all().map(row => row.name);
+    const migratedRegistration = JSON.parse(
+        migrationDb.prepare('SELECT classes FROM registrations WHERE name = ?').get('Test Racer').classes
+    );
+    const newDriver = migrationDb.prepare(
+        'SELECT firstName, lastName FROM drivers WHERE firstName = ? AND lastName = ?'
+    ).get('CD', 'Washington');
+    const migrationCount = migrationDb.prepare('SELECT COUNT(*) AS count FROM data_migrations').get().count;
+    migrationDb.close();
+
+    assert.ok(classNames.includes('Gt12'));
+    assert.ok(classNames.includes('1/12 17.5'));
+    assert.ok(classNames.includes('Wgtr'));
+    assert.ok(!classNames.includes('GT12'));
+    assert.deepEqual(migratedRegistration, ['Gt12']);
+    assert.deepEqual(newDriver, { firstName: 'CD', lastName: 'Washington' });
+    assert.equal(migrationCount, 1);
 });
 
 test('creates, updates, and searches a driver by nickname', async () => {

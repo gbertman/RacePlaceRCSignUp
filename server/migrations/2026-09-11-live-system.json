@@ -1,0 +1,845 @@
+{
+  "id": "2026-09-11-live-system-roster-and-classes",
+  "description": "Authoritative Race Place RC track, class, driver, and nickname data verified against LiveRC through September 5, 2026.",
+  "classAliases": {
+    "GT12": "Gt12",
+    "LMH 25.5": "Lmh 25.5",
+    "Tamiya TT-02": "Tamiya Tt-02",
+    "Tamiya TT-02 GT2": "Tamiya Tt-02 Gt2"
+  },
+  "trackTypes": [
+    {
+      "name": "On Road",
+      "enabled": true
+    },
+    {
+      "name": "Off Road",
+      "enabled": true
+    },
+    {
+      "name": "Mini-Z",
+      "enabled": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "1/12 13.5",
+      "type": "On Road"
+    },
+    {
+      "name": "1/12 17.5",
+      "type": "On Road"
+    },
+    {
+      "name": "21.5 Stock Touring",
+      "type": "On Road"
+    },
+    {
+      "name": "Euro Truck",
+      "type": "On Road"
+    },
+    {
+      "name": "Formula 1",
+      "type": "On Road"
+    },
+    {
+      "name": "Front Wheel Drive",
+      "type": "On Road"
+    },
+    {
+      "name": "Gt12",
+      "type": "On Road"
+    },
+    {
+      "name": "Lmh 25.5",
+      "type": "On Road"
+    },
+    {
+      "name": "Tamiya Tt-02",
+      "type": "On Road"
+    },
+    {
+      "name": "Vintage Trans Am",
+      "type": "On Road"
+    },
+    {
+      "name": "Expert Buggy",
+      "type": "Off Road"
+    },
+    {
+      "name": "Sportsman Buggy",
+      "type": "Off Road"
+    },
+    {
+      "name": "Stadium Truck",
+      "type": "Off Road"
+    },
+    {
+      "name": "Tamiya Tt-02 Gt2",
+      "type": "On Road"
+    },
+    {
+      "name": "Mini Z - 50%",
+      "type": "Mini-Z"
+    },
+    {
+      "name": "Modified",
+      "type": "Mini-Z"
+    },
+    {
+      "name": "Stock Mini Z",
+      "type": "Mini-Z"
+    },
+    {
+      "name": "Wgtr",
+      "type": "On Road"
+    }
+  ],
+  "drivers": [
+    {
+      "firstName": "Kenny",
+      "lastName": "Ainsley",
+      "nickname": "Sparky"
+    },
+    {
+      "firstName": "David",
+      "lastName": "Alford",
+      "nickname": ""
+    },
+    {
+      "firstName": "December",
+      "lastName": "Ambros",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bambizzle",
+      "lastName": "Ballard",
+      "nickname": ""
+    },
+    {
+      "firstName": "Toast",
+      "lastName": "Ballard",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brad",
+      "lastName": "Barnell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Gene",
+      "lastName": "Bertman",
+      "nickname": ""
+    },
+    {
+      "firstName": "Josh",
+      "lastName": "Bertman",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brian",
+      "lastName": "Brewer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Dustin",
+      "lastName": "Brewer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Josh",
+      "lastName": "Brooks",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Brown",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bobby",
+      "lastName": "Brummett",
+      "nickname": ""
+    },
+    {
+      "firstName": "Mike",
+      "lastName": "Burrows",
+      "nickname": ""
+    },
+    {
+      "firstName": "Billy",
+      "lastName": "Caldwell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Cory",
+      "lastName": "Campbell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Hunter",
+      "lastName": "Campbell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Easton",
+      "lastName": "Carter",
+      "nickname": ""
+    },
+    {
+      "firstName": "Nate",
+      "lastName": "Champeau",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jordan",
+      "lastName": "Church",
+      "nickname": ""
+    },
+    {
+      "firstName": "Don",
+      "lastName": "Cloer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Rodney",
+      "lastName": "Cochran",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brent",
+      "lastName": "Daniels",
+      "nickname": ""
+    },
+    {
+      "firstName": "Larry",
+      "lastName": "Daniels",
+      "nickname": ""
+    },
+    {
+      "firstName": "Avery",
+      "lastName": "Davis",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brian",
+      "lastName": "Davis",
+      "nickname": ""
+    },
+    {
+      "firstName": "Tyler",
+      "lastName": "Davis",
+      "nickname": ""
+    },
+    {
+      "firstName": "Avery",
+      "lastName": "Davis Sr.",
+      "nickname": ""
+    },
+    {
+      "firstName": "Cooper",
+      "lastName": "Deny",
+      "nickname": ""
+    },
+    {
+      "firstName": "Weston",
+      "lastName": "Deny",
+      "nickname": ""
+    },
+    {
+      "firstName": "Andrew",
+      "lastName": "Doherty",
+      "nickname": ""
+    },
+    {
+      "firstName": "Lincoln",
+      "lastName": "Doherty",
+      "nickname": ""
+    },
+    {
+      "firstName": "Clint",
+      "lastName": "Douglas",
+      "nickname": ""
+    },
+    {
+      "firstName": "Dana",
+      "lastName": "Dowell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Kirk",
+      "lastName": "Dowell",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Dronberger",
+      "nickname": ""
+    },
+    {
+      "firstName": "Abel",
+      "lastName": "Duncan",
+      "nickname": "Happy"
+    },
+    {
+      "firstName": "Able",
+      "lastName": "Duncan",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ilisa",
+      "lastName": "Eaves",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jr",
+      "lastName": "Eaves",
+      "nickname": ""
+    },
+    {
+      "firstName": "Stephen",
+      "lastName": "Eaves",
+      "nickname": ""
+    },
+    {
+      "firstName": "Steven",
+      "lastName": "Eaves",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brian",
+      "lastName": "Foster",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Fulks",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Fulks Jr",
+      "nickname": ""
+    },
+    {
+      "firstName": "Doc",
+      "lastName": "Gilbert",
+      "nickname": ""
+    },
+    {
+      "firstName": "Chris",
+      "lastName": "Gomez",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ian",
+      "lastName": "Gomez",
+      "nickname": ""
+    },
+    {
+      "firstName": "Clark",
+      "lastName": "Griffith",
+      "nickname": "Superman"
+    },
+    {
+      "firstName": "Colby",
+      "lastName": "Haggard",
+      "nickname": ""
+    },
+    {
+      "firstName": "Josh",
+      "lastName": "Hammons",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matthew",
+      "lastName": "Hanna",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ronald",
+      "lastName": "Hanna",
+      "nickname": ""
+    },
+    {
+      "firstName": "Wade",
+      "lastName": "Harrison",
+      "nickname": ""
+    },
+    {
+      "firstName": "Steve",
+      "lastName": "Hartley",
+      "nickname": ""
+    },
+    {
+      "firstName": "Zach",
+      "lastName": "Hayer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Cesar",
+      "lastName": "Hernandez",
+      "nickname": ""
+    },
+    {
+      "firstName": "Zach",
+      "lastName": "Heyer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bryant",
+      "lastName": "Holloway",
+      "nickname": "Midnight"
+    },
+    {
+      "firstName": "Midnight",
+      "lastName": "Holloway",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bryant",
+      "lastName": "Holloway Jr",
+      "nickname": "Junior"
+    },
+    {
+      "firstName": "Darryl",
+      "lastName": "Hopkins",
+      "nickname": ""
+    },
+    {
+      "firstName": "Daryl",
+      "lastName": "Hopkins",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Jenkens",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Jenkins",
+      "nickname": ""
+    },
+    {
+      "firstName": "Tyler",
+      "lastName": "Keel",
+      "nickname": ""
+    },
+    {
+      "firstName": "Barry",
+      "lastName": "Keith",
+      "nickname": ""
+    },
+    {
+      "firstName": "Scott",
+      "lastName": "Kidder",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brad",
+      "lastName": "Komo",
+      "nickname": ""
+    },
+    {
+      "firstName": "Todd",
+      "lastName": "Kramer",
+      "nickname": ""
+    },
+    {
+      "firstName": "Blake",
+      "lastName": "Lambert",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Lavaro",
+      "nickname": ""
+    },
+    {
+      "firstName": "Chris",
+      "lastName": "Lawson",
+      "nickname": ""
+    },
+    {
+      "firstName": "Heath",
+      "lastName": "Lawson",
+      "nickname": ""
+    },
+    {
+      "firstName": "Chris",
+      "lastName": "Leach",
+      "nickname": ""
+    },
+    {
+      "firstName": "Gage",
+      "lastName": "Leftwich",
+      "nickname": ""
+    },
+    {
+      "firstName": "Shawn",
+      "lastName": "Lewis",
+      "nickname": ""
+    },
+    {
+      "firstName": "Joey",
+      "lastName": "Low",
+      "nickname": ""
+    },
+    {
+      "firstName": "Raul",
+      "lastName": "Lozano",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Lurry",
+      "nickname": ""
+    },
+    {
+      "firstName": "Nick",
+      "lastName": "Mahon",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brad",
+      "lastName": "Mainard",
+      "nickname": ""
+    },
+    {
+      "firstName": "Derek",
+      "lastName": "Mason",
+      "nickname": ""
+    },
+    {
+      "firstName": "Irisa",
+      "lastName": "Mason",
+      "nickname": ""
+    },
+    {
+      "firstName": "Roy",
+      "lastName": "Mason",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Mathews",
+      "nickname": ""
+    },
+    {
+      "firstName": "Carl",
+      "lastName": "Medina",
+      "nickname": ""
+    },
+    {
+      "firstName": "James",
+      "lastName": "Miller",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jon",
+      "lastName": "Mitchell",
+      "nickname": "Grumpy"
+    },
+    {
+      "firstName": "Hunter",
+      "lastName": "Montgomery",
+      "nickname": ""
+    },
+    {
+      "firstName": "Michael",
+      "lastName": "Montgomery",
+      "nickname": ""
+    },
+    {
+      "firstName": "Alex",
+      "lastName": "Moore",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brandon",
+      "lastName": "Neil",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jason",
+      "lastName": "Nichols",
+      "nickname": ""
+    },
+    {
+      "firstName": "Randy",
+      "lastName": "Novak",
+      "nickname": ""
+    },
+    {
+      "firstName": "Sean",
+      "lastName": "Nunamaker",
+      "nickname": ""
+    },
+    {
+      "firstName": "Erik",
+      "lastName": "Ortega",
+      "nickname": ""
+    },
+    {
+      "firstName": "Christian",
+      "lastName": "Ortiz",
+      "nickname": ""
+    },
+    {
+      "firstName": "David",
+      "lastName": "Parent",
+      "nickname": ""
+    },
+    {
+      "firstName": "Trey",
+      "lastName": "Patocka",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ron",
+      "lastName": "Richardson",
+      "nickname": ""
+    },
+    {
+      "firstName": "Matt",
+      "lastName": "Rickoff",
+      "nickname": ""
+    },
+    {
+      "firstName": "Corey",
+      "lastName": "Robison",
+      "nickname": ""
+    },
+    {
+      "firstName": "Josh",
+      "lastName": "Rogers",
+      "nickname": ""
+    },
+    {
+      "firstName": "Aaron",
+      "lastName": "Royston",
+      "nickname": ""
+    },
+    {
+      "firstName": "Carson",
+      "lastName": "Rozelle",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jeff",
+      "lastName": "Rozelle",
+      "nickname": ""
+    },
+    {
+      "firstName": "Parker",
+      "lastName": "Rozelle",
+      "nickname": ""
+    },
+    {
+      "firstName": "Josh",
+      "lastName": "S",
+      "nickname": ""
+    },
+    {
+      "firstName": "Greg",
+      "lastName": "Satterlee",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bob",
+      "lastName": "Seay",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ranger",
+      "lastName": "Shipman",
+      "nickname": ""
+    },
+    {
+      "firstName": "Dewaynes",
+      "lastName": "Shipmen",
+      "nickname": ""
+    },
+    {
+      "firstName": "Brian",
+      "lastName": "Shuma",
+      "nickname": ""
+    },
+    {
+      "firstName": "Casey",
+      "lastName": "Shuma",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ron",
+      "lastName": "Skalovsky",
+      "nickname": ""
+    },
+    {
+      "firstName": "Ben",
+      "lastName": "Skidmore",
+      "nickname": ""
+    },
+    {
+      "firstName": "Kyle",
+      "lastName": "Skidmore",
+      "nickname": ""
+    },
+    {
+      "firstName": "Chance",
+      "lastName": "Smith",
+      "nickname": ""
+    },
+    {
+      "firstName": "Thomas",
+      "lastName": "Smith",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jason",
+      "lastName": "Suttles",
+      "nickname": ""
+    },
+    {
+      "firstName": "Justin",
+      "lastName": "Suttles",
+      "nickname": ""
+    },
+    {
+      "firstName": "Mason",
+      "lastName": "Suttles",
+      "nickname": ""
+    },
+    {
+      "firstName": "Dexter",
+      "lastName": "Sweeting",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bill",
+      "lastName": "Sydor",
+      "nickname": ""
+    },
+    {
+      "firstName": "Alex",
+      "lastName": "Thompson",
+      "nickname": "Big Tex"
+    },
+    {
+      "firstName": "Shawn",
+      "lastName": "Tolar",
+      "nickname": ""
+    },
+    {
+      "firstName": "Warren",
+      "lastName": "Truver",
+      "nickname": ""
+    },
+    {
+      "firstName": "Shawn",
+      "lastName": "Tryon",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jeff",
+      "lastName": "Unsell",
+      "nickname": ""
+    },
+    {
+      "firstName": "Korben",
+      "lastName": "Urban",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jerry",
+      "lastName": "Veatch",
+      "nickname": ""
+    },
+    {
+      "firstName": "William",
+      "lastName": "Verbenec",
+      "nickname": ""
+    },
+    {
+      "firstName": "Kyle",
+      "lastName": "Vergara",
+      "nickname": ""
+    },
+    {
+      "firstName": "Greg",
+      "lastName": "Waller",
+      "nickname": ""
+    },
+    {
+      "firstName": "CD",
+      "lastName": "Washington",
+      "nickname": ""
+    },
+    {
+      "firstName": "Justin",
+      "lastName": "Wheeler",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Whitham",
+      "nickname": ""
+    },
+    {
+      "firstName": "Bryson",
+      "lastName": "Williams",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Williams",
+      "nickname": ""
+    },
+    {
+      "firstName": "Kent",
+      "lastName": "Williams",
+      "nickname": ""
+    },
+    {
+      "firstName": "Tonya",
+      "lastName": "Williams",
+      "nickname": ""
+    },
+    {
+      "firstName": "John",
+      "lastName": "Witham",
+      "nickname": "Pirate"
+    },
+    {
+      "firstName": "Chase",
+      "lastName": "Woodring",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jeff",
+      "lastName": "Woodring",
+      "nickname": ""
+    },
+    {
+      "firstName": "Liam",
+      "lastName": "Woodring",
+      "nickname": ""
+    },
+    {
+      "firstName": "Jenson",
+      "lastName": "Yip",
+      "nickname": ""
+    },
+    {
+      "firstName": "Raymond",
+      "lastName": "Yip",
+      "nickname": ""
+    },
+    {
+      "firstName": "Darin",
+      "lastName": "Z",
+      "nickname": ""
+    }
+  ]
+}

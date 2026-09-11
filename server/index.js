@@ -22,6 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 const DATA_DIR = path.join(__dirname, 'data');
+const DATA_MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 const INITIAL_ADMIN_USERNAME = (process.env.INITIAL_ADMIN_USERNAME || 'admin').trim();
 const INITIAL_ADMIN_PASSWORD = process.env.INITIAL_ADMIN_PASSWORD || 'admin';
 const BCRYPT_SALT_ROUNDS = 10;
@@ -77,6 +78,9 @@ function initializeDatabase() {
         );
     `);
     ensureDriverNicknameColumn(db);
+    if (process.env.SKIP_BUNDLED_DATA_MIGRATIONS !== 'true') {
+        applyBundledDataMigrations(db);
+    }
     ensureInitialAdmin();
 }
 
@@ -84,6 +88,86 @@ function ensureDriverNicknameColumn(database) {
     const driverColumns = database.prepare('PRAGMA table_info(drivers)').all();
     if (!driverColumns.some(column => column.name === 'nickname')) {
         database.exec("ALTER TABLE drivers ADD COLUMN nickname TEXT NOT NULL DEFAULT ''");
+    }
+}
+
+function applyDataMigration(database, migration) {
+    database.exec(`
+        CREATE TABLE IF NOT EXISTS data_migrations (
+            id TEXT PRIMARY KEY,
+            appliedAt TEXT NOT NULL
+        )
+    `);
+
+    const migrationId = (migration?.id || '').trim();
+    if (!migrationId) {
+        throw new Error('Data migration is missing an id');
+    }
+    if (database.prepare('SELECT 1 FROM data_migrations WHERE id = ?').get(migrationId)) {
+        return false;
+    }
+
+    const classAliases = migration.classAliases || {};
+    const classes = Array.isArray(migration.classes) ? migration.classes : [];
+    const drivers = Array.isArray(migration.drivers) ? migration.drivers : [];
+    const trackTypes = Array.isArray(migration.trackTypes) ? migration.trackTypes : [];
+    const desiredClassNames = new Set(classes.map(item => item.name));
+
+    const apply = database.transaction(() => {
+        if (classes.length) {
+            const registrationRows = database.prepare('SELECT name, classes FROM registrations').all();
+            const updateRegistration = database.prepare('UPDATE registrations SET classes = ? WHERE name = ?');
+            for (const row of registrationRows) {
+                const existingClasses = JSON.parse(row.classes || '[]');
+                const updatedClasses = [...new Set(existingClasses
+                    .map(className => classAliases[className] || className)
+                    .filter(className => desiredClassNames.has(className)))];
+                updateRegistration.run(JSON.stringify(updatedClasses), row.name);
+            }
+
+            database.prepare('DELETE FROM classes').run();
+            const insertClass = database.prepare('INSERT INTO classes (name, type) VALUES (?, ?)');
+            for (const raceClass of classes) {
+                insertClass.run(raceClass.name, normalizeTrackType(raceClass.type));
+            }
+        }
+
+        if (drivers.length) {
+            database.prepare('DELETE FROM drivers').run();
+            const insertDriver = database.prepare(
+                'INSERT INTO drivers (firstName, lastName, nickname) VALUES (?, ?, ?)'
+            );
+            for (const driver of drivers) {
+                insertDriver.run(driver.firstName, driver.lastName, driver.nickname || '');
+            }
+        }
+
+        if (trackTypes.length) {
+            database.prepare('DELETE FROM track').run();
+            const insertTrack = database.prepare('INSERT INTO track (name, enabled) VALUES (?, ?)');
+            for (const track of trackTypes) {
+                insertTrack.run(normalizeTrackType(track.name), track.enabled === false ? 0 : 1);
+            }
+        }
+
+        database.prepare('INSERT INTO data_migrations (id, appliedAt) VALUES (?, ?)')
+            .run(migrationId, new Date().toISOString());
+    });
+
+    apply();
+    return true;
+}
+
+function applyBundledDataMigrations(database) {
+    if (!fs.existsSync(DATA_MIGRATIONS_DIR)) return;
+
+    const migrationFiles = fs.readdirSync(DATA_MIGRATIONS_DIR)
+        .filter(fileName => fileName.endsWith('.json'))
+        .sort();
+    for (const fileName of migrationFiles) {
+        const migrationPath = path.join(DATA_MIGRATIONS_DIR, fileName);
+        const migration = JSON.parse(fs.readFileSync(migrationPath, 'utf8'));
+        applyDataMigration(database, migration);
     }
 }
 
@@ -1293,6 +1377,7 @@ if (require.main === module) {
 
 module.exports = {
     app,
+    applyDataMigration,
     buildSheetExtractionSchema,
     closeDatabase,
     ensureDriverNicknameColumn,
