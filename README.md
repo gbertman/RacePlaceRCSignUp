@@ -46,6 +46,12 @@ The default model is `gpt-5.6-terra`. Override it when needed:
 $env:OPENAI_VISION_MODEL='gpt-5.6-terra'
 ```
 
+Sheet analysis uses OpenAI Fast mode by default. To return to standard processing, set:
+
+```powershell
+$env:OPENAI_SERVICE_TIER='default'
+```
+
 The API key must never be placed in the React client or committed to this repository. Sheet photographs are held in memory only for analysis and are not written to disk. GPT output is presented on a required verification page before registrations or new drivers are saved.
 
 - [OpenAI image and vision documentation](https://developers.openai.com/api/docs/guides/images-vision)

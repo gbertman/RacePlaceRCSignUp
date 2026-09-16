@@ -769,6 +769,7 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
 
     const response = await client.responses.create({
         model: process.env.OPENAI_VISION_MODEL || 'gpt-5.6-terra',
+        service_tier: process.env.OPENAI_SERVICE_TIER || 'fast',
         store: false,
         input: [
             {

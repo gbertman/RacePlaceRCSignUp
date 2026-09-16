@@ -32,7 +32,7 @@ function resizeSheetImage(file) {
         const image = document.createElement('img');
 
         image.onload = () => {
-            const maxDimension = 2600;
+            const maxDimension = 2048;
             const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
@@ -55,7 +55,7 @@ function resizeSheetImage(file) {
                     return;
                 }
                 resolve(new File([blob], 'registration-sheet.jpg', { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.85);
         };
 
         image.onerror = () => {
