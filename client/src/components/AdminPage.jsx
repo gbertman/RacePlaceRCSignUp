@@ -657,7 +657,12 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
                         {Object.entries(classesByType).map(([type, group]) => (
                             <Card key={type} withBorder>
-                                    <Text fw={700} mb="xs">{type}</Text>
+                                    <Group justify="space-between" mb="xs">
+                                        <Text fw={700}>{type}</Text>
+                                        <Badge color="blue" variant="light">
+                                            Registrations: {group.reduce((total, c) => total + (classCounts[c.name] || 0), 0)}
+                                        </Badge>
+                                    </Group>
                                     <Stack gap={6}>
                                         {group.map(c => (
                                             <Group key={c.name} justify="space-between">
