@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, SegmentedControl, Stack, Table, Text, Title } from '@mantine/core';
-import { Link } from 'react-router-dom';
 
 function RaceLineupsPage() {
     const [track, setTrack] = useState('on-road');
@@ -36,10 +35,7 @@ function RaceLineupsPage() {
 
     return (
         <Stack gap="lg" maw={760} mx="auto">
-            <Group justify="space-between">
-                <Title order={1} size="h2">Race Lineups</Title>
-                <Button component={Link} to="/admin" variant="light">Admin</Button>
-            </Group>
+            <Title order={1} size="h2">Race Lineups</Title>
             <SegmentedControl fullWidth size="md" aria-label="Track" value={track} onChange={setTrack}
                 data={[{ value: 'on-road', label: 'On Road' }, { value: 'off-road', label: 'Off Road' }]} />
             <Group justify="space-between">
