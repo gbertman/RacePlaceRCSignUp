@@ -118,3 +118,5 @@ The build script explicitly installs the client's development dependencies becau
 ## Public race lineups
 
 The home page (`/`, also linked by `/lineups`) reads the latest event from the two Race Place LiveRC sites through `/api/race-lineups/on-road` and `/api/race-lineups/off-road`. The server reads the event and published heat sheets on each request; no LiveRC credentials or API key are required. The event name/date and retrieval time are displayed so a previous event is identifiable. Failed sheets show an error and a direct LiveRC link. The parser depends on LiveRC?s public HTML structure, so changes to that structure may require updating `server/raceLineups.js`.
+
+Before mains are posted, the public page shows Qualifier 1 race order followed by the latest posted qualifier rankings, grouped by class with positions, names, and laps/time. Standings load on opening or refreshing the page and disappear once mains are posted.

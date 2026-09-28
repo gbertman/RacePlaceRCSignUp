@@ -30,7 +30,8 @@ function RaceLineupsPage() {
         return () => controller.abort();
     }, [track, refresh]);
 
-    const round = data?.rounds.at(-1);
+    const round = data?.rounds.find(item => item.type === 'mains')
+        || data?.rounds.find(item => item.type === 'qualifier' && item.number === 1);
     const sourceUrl = track === 'on-road' ? 'https://raceplacerc.liverc.com/results/' : 'https://raceplacercoffroad.liverc.com/results/';
 
     return (
@@ -39,7 +40,7 @@ function RaceLineupsPage() {
             <SegmentedControl fullWidth size="md" aria-label="Track" value={track} onChange={setTrack}
                 data={[{ value: 'on-road', label: 'On Road' }, { value: 'off-road', label: 'Off Road' }]} />
             <Group justify="space-between">
-                <Text size="sm" c="dimmed">Open or refresh this page for the latest posted lineups.</Text>
+                <Text size="sm" c="dimmed">Qualifier 1 race order, then mains when posted. Refresh for updates.</Text>
                 <Button variant="filled" onClick={() => setRefresh(value => value + 1)} disabled={loading}>Refresh</Button>
             </Group>
             {loading && <Group role="status"><Loader size="sm" /><Text>Loading race lineups...</Text></Group>}
@@ -66,6 +67,25 @@ function RaceLineupsPage() {
                         </Table.Tr>)}</Table.Tbody>
                     </Table> : <Text c="dimmed">Participants haven’t been posted yet.</Text>}
                 </Card>)}
+                {round?.type !== 'mains' && <Stack gap="md">
+                    <Title order={2} size="h4">Current Qualifying Standings</Title>
+                    {data.standings ? <>
+                        <Text size="sm" c="dimmed">{data.standings.label} · Latest posted rankings</Text>
+                        {data.standings.error && <Alert color="yellow" role="alert">{data.standings.error}</Alert>}
+                        {data.standings.classes.map(raceClass => <Card key={raceClass.name} withBorder padding="lg" radius="md">
+                            <Title order={3} size="h5" mb="sm">{raceClass.name}</Title>
+                            {raceClass.participants.length ? <Table verticalSpacing="sm">
+                                <Table.Thead><Table.Tr><Table.Th>Pos</Table.Th><Table.Th>Participant</Table.Th><Table.Th>Laps/Time</Table.Th></Table.Tr></Table.Thead>
+                                <Table.Tbody>{raceClass.participants.map((participant, index) => <Table.Tr key={index}>
+                                    <Table.Td>{participant.position}</Table.Td>
+                                    <Table.Td style={{ overflowWrap: 'anywhere' }}>{participant.name}</Table.Td>
+                                    <Table.Td>{participant.result}</Table.Td>
+                                </Table.Tr>)}</Table.Tbody>
+                            </Table> : <Text c="dimmed">Results haven’t been posted for this class yet.</Text>}
+                        </Card>)}
+                        <Anchor href={data.standings.sourceUrl} target="_blank" rel="noopener noreferrer" size="sm">View standings on LiveRC</Anchor>
+                    </> : <Text c="dimmed">Qualifying standings haven’t been posted yet.</Text>}
+                </Stack>}
             </>}
             <Anchor href={round?.sourceUrl || sourceUrl} target="_blank" rel="noopener noreferrer" size="sm">View on LiveRC</Anchor>
         </Stack>
