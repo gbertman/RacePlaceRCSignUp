@@ -43,21 +43,45 @@ function RegistrationList({ registrations, classes = [], onEdit }) {
                 </Stack>
             ) : null}
             <Stack gap="sm">
-                <Title order={2} size="h4">Registered Racers</Title>
+                <Group gap="sm">
+                    <Title order={2} size="h4">Registered Racers</Title>
+                    <Badge color="blue" variant="light" aria-label={`${entries.length} registered racers`}>
+                        {entries.length}
+                    </Badge>
+                </Group>
                 <Text fs="italic" c="dimmed">
                     Click your name below to edit your entry. If you no longer plan to race, please let the
                     office know so your registration can be removed.
                 </Text>
-                {entries.map(r => (
-                    <Card key={r.key} withBorder padding="sm">
-                        <Group justify="space-between" align="center" wrap="wrap">
-                            <UnstyledButton onClick={() => onEdit(r.key)} fw={600} c="blue">
-                                {r.name}
-                            </UnstyledButton>
-                            <Text size="sm">{r.classes.join(', ')}</Text>
-                        </Group>
-                    </Card>
-                ))}
+                {entries.length === 0 ? (
+                    <Text c="dimmed">No racers registered yet.</Text>
+                ) : (
+                    <div className="registered-racers-grid">
+                        {entries.map(r => (
+                            <Card key={r.key} withBorder padding="md" radius="md" className="registered-racer">
+                                <UnstyledButton
+                                    onClick={() => onEdit(r.key)}
+                                    className="registered-racer-name"
+                                    fw={700}
+                                    c="blue"
+                                    aria-label={`Edit registration for ${r.name}`}
+                                >
+                                    {r.name}
+                                </UnstyledButton>
+                                <Text size="xs" c="dimmed" mt="sm" mb={6}>
+                                    {(r.classes || []).length} {(r.classes || []).length === 1 ? 'class' : 'classes'}
+                                </Text>
+                                {(r.classes || []).length > 0 ? (
+                                    <ul className="registered-racer-classes">
+                                        {r.classes.map(name => <li key={name}>{name}</li>)}
+                                    </ul>
+                                ) : (
+                                    <Text size="sm" c="dimmed">No classes selected.</Text>
+                                )}
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </Stack>
         </Stack>
     );

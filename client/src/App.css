@@ -116,3 +116,43 @@
   padding: 0;
   border: 0;
 }
+
+.registered-racers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+
+.registered-racer {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.registered-racer-name {
+  width: 100%;
+  border-radius: 4px;
+  font-size: var(--mantine-font-size-lg);
+  line-height: 1.4;
+}
+
+.registered-racer-name:hover {
+  text-decoration: underline;
+}
+
+.registered-racer-name:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 3px;
+}
+
+.registered-racer-classes {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.5;
+}
+
+.registered-racer-classes li::marker {
+  color: var(--mantine-color-blue-6);
+}
