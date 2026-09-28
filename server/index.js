@@ -1057,11 +1057,11 @@ app.post(
     uploadRegistrationSheet,
     async (req, res) => {
         const trackName = String(req.body?.trackName || '').trim();
-        const track = readTrackTypes().find(item => item.name === trackName && item.enabled);
+        const track = readTrackTypes().find(item => item.name === trackName);
         const raceClasses = readClasses().filter(item => item.type === trackName);
 
         if (!track || raceClasses.length === 0) {
-            return res.status(400).json({ error: 'Select an open track with configured race classes' });
+            return res.status(400).json({ error: 'Select a track with configured race classes' });
         }
         if (!req.file) {
             return res.status(400).json({ error: 'Take or select a registration sheet photo' });

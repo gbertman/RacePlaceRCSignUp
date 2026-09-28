@@ -89,7 +89,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
     } = useAdminSession();
 
     const availableTracks = useMemo(() => trackTypes
-        .filter(track => track.enabled && classes.some(item => item.type === track.name))
+        .filter(track => classes.some(item => item.type === track.name))
         .map(track => track.name), [classes, trackTypes]);
 
     useEffect(() => {
@@ -345,7 +345,7 @@ function SheetImportPage({ classes, trackTypes, onRegistrationsChanged }) {
                                     setImportResult(null);
                                 }}
                                 data={availableTracks.length === 0
-                                    ? [{ value: '', label: 'No open tracks with classes' }]
+                                    ? [{ value: '', label: 'No tracks with classes' }]
                                     : availableTracks}
                             />
                             <VisuallyHidden>

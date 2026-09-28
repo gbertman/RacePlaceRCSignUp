@@ -10,7 +10,6 @@ import {
     PasswordInput,
     SimpleGrid,
     Stack,
-    Switch,
     Text,
     TextInput,
     Title,
@@ -26,7 +25,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
     const [isClassModalOpen, setClassModalOpen] = useState(false);
     const [isTrackModalOpen, setTrackModalOpen] = useState(false);
     const [newTrackName, setNewTrackName] = useState('');
-    const [newTrackEnabled, setNewTrackEnabled] = useState(true);
     const [trackError, setTrackError] = useState('');
     const [isSavingTrack, setSavingTrack] = useState(false);
     const [newDriverFirst, setNewDriverFirst] = useState('');
@@ -148,28 +146,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
         }
     }, [fetchAdmin, readError]);
 
-    const updateTrackEnabled = async (name, enabled) => {
-        const updatedTrackTypes = trackTypes.map(track =>
-            track.name === name ? { ...track, enabled } : track
-        );
-
-        try {
-            const response = await fetchAdmin('/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trackTypes: updatedTrackTypes }),
-            });
-
-            if (!response.ok) {
-                throw new Error(await readError(response, `Failed to save tracks: ${response.status}`));
-            }
-
-            if (onTracksSaved) onTracksSaved();
-        } catch (error) {
-            window.alert(`Unable to update track availability: ${error.message}`);
-        }
-    };
-
     const addTrack = async (event) => {
         event.preventDefault();
         const name = newTrackName.trim();
@@ -187,7 +163,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
             const response = await fetchAdmin('/track', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trackTypes: [...trackTypes, { name, enabled: newTrackEnabled }] }),
+                body: JSON.stringify({ trackTypes: [...trackTypes, { name }] }),
             });
             if (!response.ok) {
                 throw new Error(await readError(response, `Failed to add track: ${response.status}`));
@@ -195,7 +171,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
             if (onTracksSaved) onTracksSaved();
             setTrackModalOpen(false);
             setNewTrackName('');
-            setNewTrackEnabled(true);
         } catch (error) {
             setTrackError(error.message);
         } finally {
@@ -618,32 +593,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                 </VisuallyHidden>
             </Stack>
             <Stack gap="sm">
-                <Title order={2} size="h5">Track Availability</Title>
-                {trackTypes.length === 0 ? (
-                    <Text c="dimmed">No tracks configured.</Text>
-                ) : (
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-                        {trackTypes.map(track => (
-                            <Card key={track.name} withBorder>
-                              <Group justify="space-between" align="flex-start">
-                                    <div>
-                                        <Text fw={600}>{track.name}</Text>
-                                        <Text c="dimmed" size="sm">
-                                            {track.enabled ? 'Open for scanning' : 'Closed for scanning'}
-                                        </Text>
-                                    </div>
-                                        <Switch
-                                            aria-label={`Toggle ${track.name} registration`}
-                                            checked={track.enabled}
-                                            onChange={e => updateTrackEnabled(track.name, e.currentTarget.checked)}
-                                        />
-                              </Group>
-                            </Card>
-                        ))}
-                    </SimpleGrid>
-                )}
-            </Stack>
-            <Stack gap="sm">
                 <Group gap="sm">
                     <Title order={2} size="h5">Class Counts</Title>
                     <Badge color="blue" variant="light">
@@ -730,12 +679,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                             error={trackError}
                             disabled={isSavingTrack}
                             required
-                        />
-                        <Switch
-                            label="Open for scanning"
-                            checked={newTrackEnabled}
-                            onChange={event => setNewTrackEnabled(event.currentTarget.checked)}
-                            disabled={isSavingTrack}
                         />
                         <Text size="sm" c="dimmed">After adding the track, use Edit Classes to add its race classes.</Text>
                         <Group justify="flex-end">
