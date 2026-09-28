@@ -24,7 +24,12 @@ function RegistrationList({ registrations, classes = [], onEdit }) {
         <Stack pb="md" gap="xl">
             {classes.length > 0 ? (
                 <Stack gap="sm">
-                    <Title order={2} size="h4">Class Counts</Title>
+                    <Group gap="sm">
+                        <Title order={2} size="h4">Class Counts</Title>
+                        <Badge color="blue" variant="light">
+                            {entries.length} total {entries.length === 1 ? 'signup' : 'signups'}
+                        </Badge>
+                    </Group>
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
                         {Object.entries(classesByType).map(([type, group]) => (
                             <Card key={type} withBorder>

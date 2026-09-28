@@ -6,7 +6,6 @@ import {
     Card,
     Group,
     Modal,
-    NativeSelect,
     Paper,
     PasswordInput,
     SimpleGrid,
@@ -21,9 +20,15 @@ import { Link } from 'react-router-dom';
 import ClassEditor from './ClassEditor';
 import useAdminSession from '../hooks/useAdminSession';
 
-function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegistrationsChanged }) {
+function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTracksSaved, onRegistrationsChanged }) {
     const [drivers, setDrivers] = useState([]);
     const [isDriverModalOpen, setDriverModalOpen] = useState(false);
+    const [isClassModalOpen, setClassModalOpen] = useState(false);
+    const [isTrackModalOpen, setTrackModalOpen] = useState(false);
+    const [newTrackName, setNewTrackName] = useState('');
+    const [newTrackEnabled, setNewTrackEnabled] = useState(true);
+    const [trackError, setTrackError] = useState('');
+    const [isSavingTrack, setSavingTrack] = useState(false);
     const [newDriverFirst, setNewDriverFirst] = useState('');
     const [newDriverLast, setNewDriverLast] = useState('');
     const [newDriverNickname, setNewDriverNickname] = useState('');
@@ -31,10 +36,9 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
-    const [selectedScanTrack, setSelectedScanTrack] = useState('');
     const trackNames = trackTypes.map(track => track.name);
     const printableTrackNames = trackTypes
-        .filter(track => track.enabled && classes.some(item => item.type === track.name))
+        .filter(track => classes.some(item => item.type === track.name))
         .map(track => track.name);
     const {
         fetchAdmin,
@@ -93,15 +97,15 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             console.error('Unable to log out cleanly:', error);
         } finally {
             setDriverModalOpen(false);
+            setClassModalOpen(false);
+            setTrackModalOpen(false);
             setDrivers([]);
         }
     };
 
     const downloadCsv = async (trackName) => {
         try {
-            const path = trackName
-                ? `/download/${encodeURIComponent(trackName)}`
-                : '/download';
+            const path = `/download/${encodeURIComponent(trackName)}`;
             const response = await fetchAdmin(path);
             if (!response.ok) {
                 throw new Error(await readError(response, `Download failed with status ${response.status}`));
@@ -160,9 +164,42 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 throw new Error(await readError(response, `Failed to save tracks: ${response.status}`));
             }
 
-            if (onClassesSaved) onClassesSaved();
+            if (onTracksSaved) onTracksSaved();
         } catch (error) {
             window.alert(`Unable to update track availability: ${error.message}`);
+        }
+    };
+
+    const addTrack = async (event) => {
+        event.preventDefault();
+        const name = newTrackName.trim();
+        if (!name) {
+            setTrackError('Enter a track name.');
+            return;
+        }
+        if (trackNames.some(track => track.toLowerCase() === name.toLowerCase())) {
+            setTrackError('A track with this name already exists.');
+            return;
+        }
+        setTrackError('');
+        setSavingTrack(true);
+        try {
+            const response = await fetchAdmin('/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trackTypes: [...trackTypes, { name, enabled: newTrackEnabled }] }),
+            });
+            if (!response.ok) {
+                throw new Error(await readError(response, `Failed to add track: ${response.status}`));
+            }
+            if (onTracksSaved) onTracksSaved();
+            setTrackModalOpen(false);
+            setNewTrackName('');
+            setNewTrackEnabled(true);
+        } catch (error) {
+            setTrackError(error.message);
+        } finally {
+            setSavingTrack(false);
         }
     };
 
@@ -171,12 +208,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             loadDrivers();
         }
     }, [isDriverModalOpen, isAuthenticated, loadDrivers]);
-
-    useEffect(() => {
-        if (!printableTrackNames.includes(selectedScanTrack)) {
-            setSelectedScanTrack(printableTrackNames[0] || '');
-        }
-    }, [printableTrackNames, selectedScanTrack]);
 
     const addDriver = async () => {
         if (!newDriverFirst.trim() || !newDriverLast.trim()) {
@@ -332,55 +363,8 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
         }
     };
 
-    const printSheet = () => {
-        const names = classes.map(c => c.name);
-        const headers = ['Name', ...names];
-        const win = window.open('', '_blank');
-        if (!win) return;
-
-        win.document.title = 'RacePlaceRC Admin';
-
-        const style = win.document.createElement('style');
-        style.textContent = 'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #000;padding:4px;text-align:left;}';
-        win.document.head.appendChild(style);
-
-        const table = win.document.createElement('table');
-
-        const thead = win.document.createElement('thead');
-        const headerRow = win.document.createElement('tr');
-        headers.forEach((h) => {
-            const th = win.document.createElement('th');
-            th.textContent = h;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        const tbody = win.document.createElement('tbody');
-        entries.forEach((r) => {
-            const row = win.document.createElement('tr');
-            const nameCell = win.document.createElement('td');
-            nameCell.textContent = r.name;
-            row.appendChild(nameCell);
-
-            names.forEach((n) => {
-                const cell = win.document.createElement('td');
-                cell.textContent = r.classes.includes(n) ? 'X' : '';
-                row.appendChild(cell);
-            });
-
-            tbody.appendChild(row);
-        });
-        table.appendChild(tbody);
-
-        win.document.body.appendChild(table);
-        win.focus();
-        win.print();
-    };
-
-    const printScanSheet = (requestedTrackName) => {
+    const printScanSheet = () => {
         const trackPages = trackTypes
-            .filter(track => track.enabled && (!requestedTrackName || track.name === requestedTrackName))
             .map(track => ({
                 trackName: track.name,
                 raceClasses: classes.filter(item => item.type === track.name),
@@ -388,7 +372,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             .filter(track => track.raceClasses.length > 0);
 
         if (trackPages.length === 0) {
-            window.alert('Open at least one track with a race class before printing a scan sheet.');
+            window.alert('Add at least one race class to a track before printing a scan sheet.');
             return;
         }
 
@@ -572,6 +556,18 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                             User Management
                         </Button>
                     ) : null}
+                    <Button variant="light" onClick={() => setDriverModalOpen(true)}>
+                        Driver List
+                    </Button>
+                    <Button variant="light" onClick={() => setClassModalOpen(true)}>
+                        Edit Classes
+                    </Button>
+                    <Button variant="light" onClick={() => {
+                        setTrackError('');
+                        setTrackModalOpen(true);
+                    }}>
+                        Add Track
+                    </Button>
                     <Button color="red" variant="light" onClick={logout}>
                         Log Out
                     </Button>
@@ -580,50 +576,24 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
             </Group>
             <Stack gap="md">
                 <Group>
-                    <Button color="gray" onClick={() => setDriverModalOpen(true)}>
-                        Driver List
-                    </Button>
-                    <Button color="green" onClick={printSheet}>
-                        Print Spreadsheet
-                    </Button>
                     <Button component={Link} to="/admin/sheet-import">
                         Scan Registration Sheet
+                    </Button>
+                    <Button
+                        color="green"
+                        variant="light"
+                        onClick={printScanSheet}
+                        disabled={printableTrackNames.length === 0}
+                    >
+                        Print Scan Friendly Sheets
                     </Button>
                     <Button color="red" onClick={resetAll}>
                         Reset Registrations
                     </Button>
                 </Group>
-                <Group align="end">
-                        <NativeSelect
-                            id="scan-sheet-track"
-                            label="Scan-friendly sheet track"
-                            value={selectedScanTrack}
-                            onChange={event => setSelectedScanTrack(event.currentTarget.value)}
-                            disabled={printableTrackNames.length === 0}
-                            data={printableTrackNames.length === 0
-                                ? [{ value: '', label: 'No printable tracks' }]
-                                : printableTrackNames}
-                        />
-                        <Button
-                            color="green"
-                            variant="light"
-                            onClick={() => printScanSheet(selectedScanTrack)}
-                            disabled={!selectedScanTrack}
-                        >
-                            Print Selected Track
-                        </Button>
-                    {printableTrackNames.length > 1 ? (
-                            <Button variant="default" onClick={() => printScanSheet()}>
-                                Print All Tracks
-                            </Button>
-                    ) : null}
-                </Group>
                 <Stack gap="sm">
                     <Title order={2} size="h5">Download Race Registrations</Title>
                     <Group>
-                    <Button color="gray" onClick={() => downloadCsv()}>
-                        Download All CSV
-                    </Button>
                     {trackNames.map(trackName => (
                         <Button
                             key={trackName}
@@ -649,7 +619,38 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 </VisuallyHidden>
             </Stack>
             <Stack gap="sm">
-                <Title order={2} size="h5">Class Counts</Title>
+                <Title order={2} size="h5">Track Availability</Title>
+                {trackTypes.length === 0 ? (
+                    <Text c="dimmed">No tracks configured.</Text>
+                ) : (
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+                        {trackTypes.map(track => (
+                            <Card key={track.name} withBorder>
+                              <Group justify="space-between" align="flex-start">
+                                    <div>
+                                        <Text fw={600}>{track.name}</Text>
+                                        <Text c="dimmed" size="sm">
+                                            {track.enabled ? 'Open for registration' : 'Closed on the signup page'}
+                                        </Text>
+                                    </div>
+                                        <Switch
+                                            aria-label={`Toggle ${track.name} registration`}
+                                            checked={track.enabled}
+                                            onChange={e => updateTrackEnabled(track.name, e.currentTarget.checked)}
+                                        />
+                              </Group>
+                            </Card>
+                        ))}
+                    </SimpleGrid>
+                )}
+            </Stack>
+            <Stack gap="sm">
+                <Group gap="sm">
+                    <Title order={2} size="h5">Class Counts</Title>
+                    <Badge color="blue" variant="light">
+                        {entries.length} total {entries.length === 1 ? 'signup' : 'signups'}
+                    </Badge>
+                </Group>
                 {classes.length === 0 ? (
                     <Text c="dimmed">No classes configured.</Text>
                 ) : (
@@ -703,33 +704,43 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                     </div>
                 )}
             </Stack>
-            <Stack gap="sm">
-                <Title order={2} size="h5">Track Availability</Title>
-                {trackTypes.length === 0 ? (
-                    <Text c="dimmed">No tracks configured.</Text>
-                ) : (
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-                        {trackTypes.map(track => (
-                            <Card key={track.name} withBorder>
-                              <Group justify="space-between" align="flex-start">
-                                    <div>
-                                        <Text fw={600}>{track.name}</Text>
-                                        <Text c="dimmed" size="sm">
-                                            {track.enabled ? 'Open for registration' : 'Closed on the signup page'}
-                                        </Text>
-                                    </div>
-                                        <Switch
-                                            aria-label={`Toggle ${track.name} registration`}
-                                            checked={track.enabled}
-                                            onChange={e => updateTrackEnabled(track.name, e.currentTarget.checked)}
-                                        />
-                              </Group>
-                            </Card>
-                        ))}
-                    </SimpleGrid>
-                )}
-            </Stack>
-            <ClassEditor classes={classes} trackTypes={trackNames} onSave={onClassesSaved} />
+            <Modal opened={isClassModalOpen} onClose={() => setClassModalOpen(false)} title="Edit Classes" size="xl" centered>
+                <ClassEditor classes={classes} trackTypes={trackNames} onSave={onClassesSaved} />
+            </Modal>
+            <Modal
+                opened={isTrackModalOpen}
+                onClose={() => setTrackModalOpen(false)}
+                title="Add Track"
+                closeOnClickOutside={!isSavingTrack}
+                closeOnEscape={!isSavingTrack}
+                withCloseButton={!isSavingTrack}
+                centered
+            >
+                <Box component="form" onSubmit={addTrack}>
+                    <Stack>
+                        <TextInput
+                            data-autofocus
+                            label="Track name"
+                            value={newTrackName}
+                            onChange={event => setNewTrackName(event.currentTarget.value)}
+                            error={trackError}
+                            disabled={isSavingTrack}
+                            required
+                        />
+                        <Switch
+                            label="Open for registration"
+                            checked={newTrackEnabled}
+                            onChange={event => setNewTrackEnabled(event.currentTarget.checked)}
+                            disabled={isSavingTrack}
+                        />
+                        <Text size="sm" c="dimmed">After adding the track, use Edit Classes to add its race classes.</Text>
+                        <Group justify="flex-end">
+                            <Button variant="default" onClick={() => setTrackModalOpen(false)} disabled={isSavingTrack}>Cancel</Button>
+                            <Button type="submit" loading={isSavingTrack}>Add Track</Button>
+                        </Group>
+                    </Stack>
+                </Box>
+            </Modal>
             <Stack gap="sm">
                 <Title order={2} size="h4">Maintenance</Title>
                 <Group>

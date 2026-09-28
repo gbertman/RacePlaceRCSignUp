@@ -67,7 +67,6 @@ function ClassEditor({ classes, trackTypes, onSave }) {
 
     return (
         <Stack gap="lg">
-            <Title order={2} size="h4">Edit Classes</Title>
             <Group align="end" grow wrap="wrap">
                 <TextInput
                     id="new-class-name"

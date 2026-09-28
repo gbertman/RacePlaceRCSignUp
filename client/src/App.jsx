@@ -101,6 +101,7 @@ function App() {
                                 trackTypes={trackTypes}
                                 registrations={registrations}
                                 onClassesSaved={fetchClasses}
+                                onTracksSaved={fetchTrackTypes}
                                 onRegistrationsChanged={fetchRegistrations}
                             />
                         }
