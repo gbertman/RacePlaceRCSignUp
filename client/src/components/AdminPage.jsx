@@ -675,14 +675,16 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                 {entries.length === 0 ? (
                     <Text c="dimmed">No registrations yet.</Text>
                 ) : (
-                    <Stack gap="xs">
+                    <div className="registered-racers-grid">
                         {entries.map((r) => (
-                            <Card key={r.key} withBorder padding="sm">
-                              <Group justify="space-between" align="center">
-                                <div>
+                            <Card key={r.key} withBorder padding="md" className="registered-racer">
+                              <Stack gap="sm" h="100%">
+                                <div style={{ flex: 1 }}>
                                     <Text fw={600}>{r.name}</Text>
-                                    <Text c="dimmed" size="sm">{r.classes.join(', ')}</Text>
-                                    <Text c="dimmed" size="sm">
+                                    <ul className="registered-racer-classes">
+                                        {(r.classes || []).map(name => <li key={name}>{name}</li>)}
+                                    </ul>
+                                    <Text c="dimmed" size="sm" mt="sm">
                                         Registered: {formatRegistrationDate(r.registeredAt)}
                                     </Text>
                                 </div>
@@ -690,14 +692,15 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onRegis
                                     color="red"
                                     variant="light"
                                     size="xs"
+                                    style={{ alignSelf: 'flex-start' }}
                                     onClick={() => deleteRegistrant(r.key)}
                                 >
                                     Delete
                                 </Button>
-                              </Group>
+                              </Stack>
                             </Card>
                         ))}
-                    </Stack>
+                    </div>
                 )}
             </Stack>
             <Stack gap="sm">
