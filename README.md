@@ -4,9 +4,9 @@ This repository contains a full-stack web application for signing up for RC raci
 
 ## Features
 
-- Register racers with first name, last name, and multiple class selections
-- View a live list of everyone who's signed up, with real-time updates across connected devices
-- Edit an existing signup by clicking the racer's name
+- Register racers by scanning printed sheets, reviewing names and class selections, and importing verified results
+- View registrations in the admin screen with real-time updates across connected devices
+- The home page redirects to admin login; public web signup is disabled
 - Download the registration list as a CSV (`FirstName,LastName,ClassName,IsPaid`) named `YYYY-MM-DD Race Registrations.csv`
 - Admin tools for reset, CSV download, printing, driver management, maintenance backup/restore, and class editing live on `/admin`
 - Admins can print scan-friendly sheets per track, photograph them from a phone, verify GPT-extracted names and race marks, and import the approved racers
@@ -27,7 +27,7 @@ This repository contains a full-stack web application for signing up for RC raci
 - **vite**: development server and production bundler
 - **react-router-dom**: client-side routing for navigation
 - **@mantine/core** and **@mantine/hooks**: accessible UI components, responsive layouts, and interaction utilities
-- **socket.io-client**: listens for live server updates in the signup and admin screens
+- **socket.io-client**: listens for live server updates in the admin screens
 
 The OpenAI API is only required when GPT-assisted sheet scanning is enabled.
 
@@ -70,8 +70,8 @@ The API key must never be placed in the React client or committed to this reposi
     ```bash
     npm run dev
     ```
-3. **Open** your browser to `http://localhost:3000` to access the signup interface.
-4. Open `/admin` to manage the list of available classes and other admin actions.
+3. **Open** your browser to `http://localhost:3000` to sign in to the admin interface.
+4. Print sheets from `/admin`, then choose **Scan Registration Sheet** to photograph, verify, and import racers.
 
 ## Production
 

@@ -511,7 +511,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                 <Stack>
                     <Group justify="space-between">
                         <Title order={1} size="h4">Admin Login</Title>
-                        <Button component={Link} to="/" variant="default">Back to Signup</Button>
                     </Group>
                     <Paper withBorder shadow="sm" p="lg">
                         <Stack>
@@ -571,7 +570,6 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                     <Button color="red" variant="light" onClick={logout}>
                         Log Out
                     </Button>
-                    <Button component={Link} to="/" variant="default">Back to Signup</Button>
                 </Group>
             </Group>
             <Stack gap="md">
@@ -597,7 +595,8 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                     {trackNames.map(trackName => (
                         <Button
                             key={trackName}
-                            variant="default"
+                            color="violet"
+                            variant="filled"
                             onClick={() => downloadCsv(trackName)}
                         >
                             {trackName} CSV
@@ -630,7 +629,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                                     <div>
                                         <Text fw={600}>{track.name}</Text>
                                         <Text c="dimmed" size="sm">
-                                            {track.enabled ? 'Open for registration' : 'Closed on the signup page'}
+                                            {track.enabled ? 'Open for scanning' : 'Closed for scanning'}
                                         </Text>
                                     </div>
                                         <Switch
@@ -648,7 +647,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                 <Group gap="sm">
                     <Title order={2} size="h5">Class Counts</Title>
                     <Badge color="blue" variant="light">
-                        {entries.length} total {entries.length === 1 ? 'signup' : 'signups'}
+                        {entries.length} total {entries.length === 1 ? 'registration' : 'registrations'}
                     </Badge>
                 </Group>
                 {classes.length === 0 ? (
@@ -733,7 +732,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                             required
                         />
                         <Switch
-                            label="Open for registration"
+                            label="Open for scanning"
                             checked={newTrackEnabled}
                             onChange={event => setNewTrackEnabled(event.currentTarget.checked)}
                             disabled={isSavingTrack}

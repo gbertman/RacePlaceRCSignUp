@@ -257,27 +257,6 @@ function deleteUserByUsername(username) {
     return db.prepare('DELETE FROM users WHERE username = ?').run(username).changes > 0;
 }
 
-function upsertRegistration({ name, firstName, lastName, classes, originalName }) {
-    const transaction = db.transaction(() => {
-        let preservedRegisteredAt = null;
-        if (originalName && originalName !== name) {
-            const old = db.prepare('SELECT registeredAt FROM registrations WHERE name = ?').get(originalName);
-            if (old) {
-                preservedRegisteredAt = old.registeredAt;
-                db.prepare('DELETE FROM registrations WHERE name = ?').run(originalName);
-            }
-        }
-        if (!preservedRegisteredAt) {
-            const current = db.prepare('SELECT registeredAt FROM registrations WHERE name = ?').get(name);
-            preservedRegisteredAt = current?.registeredAt || new Date().toISOString();
-        }
-        db.prepare(
-            'INSERT OR REPLACE INTO registrations (name, firstName, lastName, registeredAt, classes) VALUES (?, ?, ?, ?, ?)'
-        ).run(name, firstName || '', lastName || '', preservedRegisteredAt, JSON.stringify(classes || []));
-    });
-    transaction();
-}
-
 function deleteRegistrationByName(name) {
     return db.prepare('DELETE FROM registrations WHERE name = ?').run(name).changes > 0;
 }
@@ -464,12 +443,6 @@ function normalizeTrackConfig(track) {
         name: normalizedName,
         enabled: track?.enabled !== false,
     };
-}
-
-function getEnabledTrackTypes() {
-    return readTrackTypes()
-        .filter(track => track.enabled)
-        .map(track => track.name);
 }
 
 function broadcastRegistrationsUpdated() {
@@ -1276,38 +1249,7 @@ app.delete('/registrations/:name', requireAuthenticated, (req, res) => {
 });
 
 app.post('/register', (req, res) => {
-    const { firstName, lastName, classes, originalName } = req.body;
-    const submittedFirstName = (firstName || '').trim();
-    const submittedLastName = (lastName || '').trim();
-    const existingDriver = findExactDriver(`${submittedFirstName} ${submittedLastName}`, readDrivers());
-    const normalizedFirstName = existingDriver?.firstName || submittedFirstName;
-    const normalizedLastName = existingDriver?.lastName || submittedLastName;
-    const name = `${normalizedFirstName} ${normalizedLastName}`.trim();
-    const enabledTrackTypes = getEnabledTrackTypes();
-    const availableClasses = readClasses()
-        .filter(item => enabledTrackTypes.includes(item.type))
-        .map(item => item.name);
-
-    if (!name) {
-        return res.status(400).json({ error: 'name required' });
-    }
-    if (enabledTrackTypes.length === 0) {
-        return res.status(400).json({ error: 'Registrations are closed at this time' });
-    }
-    if (!Array.isArray(classes) || classes.some(item => !availableClasses.includes(item))) {
-        return res.status(400).json({ error: 'One or more selected classes are unavailable' });
-    }
-
-    upsertRegistration({
-        name,
-        firstName: normalizedFirstName,
-        lastName: normalizedLastName,
-        classes,
-        originalName,
-    });
-    addDriverIfMissing(normalizedFirstName, normalizedLastName);
-    broadcastRegistrationsUpdated();
-    res.json({ success: true });
+    res.status(410).json({ error: 'Public signup is no longer available. Sign in to scan a registration sheet.' });
 });
 
 app.get('/download', requireAuthenticated, (req, res) => {

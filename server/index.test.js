@@ -149,6 +149,25 @@ test('creates, updates, and searches a driver by nickname', async () => {
     }
 });
 
+test('rejects public signup without changing registrations', async () => {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+    try {
+        const before = await fetch(`${baseUrl}/registrations`).then(response => response.json());
+        const response = await fetch(`${baseUrl}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ firstName: 'Public', lastName: 'Racer', classes: ['Novice'] }),
+        });
+        assert.equal(response.status, 410);
+        const after = await fetch(`${baseUrl}/registrations`).then(result => result.json());
+        assert.deepEqual(after, before);
+    } finally {
+        await new Promise(resolve => server.close(resolve));
+    }
+});
+
 test('replaces one track class group without changing Mini-Z', () => {
     replaceClassesForType('Mini-Z', ['Full Speed']);
     replaceClassesForType('On Road', ['Gt12', 'Lmh 25.5']);

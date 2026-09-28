@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Box, Container } from '@mantine/core';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import './App.css';
-import RegistrationForm from './components/RegistrationForm';
-import RegistrationList from './components/RegistrationList';
 import AdminPage from './components/AdminPage';
 import SheetImportPage from './components/SheetImportPage';
 import UserManagementPage from './components/UserManagementPage';
@@ -15,10 +13,6 @@ function App() {
     const [classes, setClasses] = useState([]);
     const [trackTypes, setTrackTypes] = useState([]);
     const [registrations, setRegistrations] = useState({});
-    const [editing, setEditing] = useState(null); // name being edited
-    const enabledTrackTypes = trackTypes.filter(track => track.enabled).map(track => track.name);
-    const registrationClasses = classes.filter(item => enabledTrackTypes.includes(item.type));
-
     const fetchClasses = () => {
         fetch('/classes')
             .then(res => res.json())
@@ -64,7 +58,7 @@ function App() {
         <Router>
             <Box component="header" className="app-navbar">
                 <Container size="lg" className="app-navbar-inner">
-                    <Link className="app-brand" to="/" aria-label="Race Place RC Signup home">
+                    <Link className="app-brand" to="/" aria-label="Race Place RC registration home">
                         <img src={racePlaceLogo} alt="Race Place RC" className="app-logo" />
                         <span className="app-brand-title">Race Registration</span>
                     </Link>
@@ -72,27 +66,7 @@ function App() {
             </Box>
             <Container size="lg" py="xl">
                 <Routes>
-                    <Route
-                        path="/"
-                        element={
-                            <>
-                                <RegistrationForm
-                                    classes={registrationClasses}
-                                    registrationOpen={enabledTrackTypes.length > 0}
-                                    onSave={() => {
-                                        fetchRegistrations();
-                                        setEditing(null);
-                                    }}
-                                    editing={editing ? registrations[editing] : null}
-                                />
-                                <RegistrationList
-                                    registrations={registrations}
-                                    classes={registrationClasses}
-                                    onEdit={name => setEditing(name)}
-                                />
-                            </>
-                        }
-                    />
+                    <Route path="/" element={<Navigate to="/admin" replace />} />
                     <Route
                         path="/admin"
                         element={
