@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Anchor, Badge, Button, Card, Group, Loader, NativeSelect, SegmentedControl, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, SegmentedControl, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from 'react-router-dom';
 
 function RaceLineupsPage() {
     const [track, setTrack] = useState('on-road');
     const [refresh, setRefresh] = useState(0);
     const [data, setData] = useState(null);
-    const [roundId, setRoundId] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -22,8 +21,6 @@ function RaceLineupsPage() {
                 const next = await response.json();
                 if (controller.signal.aborted) return;
                 setData(next);
-                setRoundId(current => next.rounds.some(round => round.id === current)
-                    ? current : (next.rounds.at(-1)?.id || ''));
             } catch (loadError) {
                 if (!controller.signal.aborted) setError(loadError.message);
             } finally {
@@ -34,7 +31,7 @@ function RaceLineupsPage() {
         return () => controller.abort();
     }, [track, refresh]);
 
-    const round = data?.rounds.find(item => item.id === roundId);
+    const round = data?.rounds.at(-1);
     const sourceUrl = track === 'on-road' ? 'https://raceplacerc.liverc.com/results/' : 'https://raceplacercoffroad.liverc.com/results/';
 
     return (
@@ -56,9 +53,7 @@ function RaceLineupsPage() {
                     <Title order={2} size="h4">{data.eventName}</Title>
                     <Text size="sm" c="dimmed">Latest event posted on LiveRC · Checked {new Date(data.fetchedAt).toLocaleString()}</Text>
                 </div>
-                {data.rounds.length > 0 ? <NativeSelect label="Round" value={roundId}
-                    onChange={event => setRoundId(event.currentTarget.value)}
-                    data={data.rounds.map(item => ({ value: item.id, label: item.label }))} />
+                {round ? <Title order={2} size="h4">{round.label}</Title>
                     : <Alert color="blue">Qualifier lineups haven’t been posted yet.</Alert>}
                 {!data.rounds.some(item => item.type === 'mains') && <Text c="dimmed">Mains haven’t been posted yet.</Text>}
                 {round?.error && <Alert color="yellow" role="alert">{round.error}</Alert>}

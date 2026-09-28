@@ -486,6 +486,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
                 <Stack>
                     <Group justify="space-between">
                         <Title order={1} size="h4">Admin Login</Title>
+                        <Button component={Link} to="/" variant="light">Race Lineups</Button>
                     </Group>
                     <Paper withBorder shadow="sm" p="lg">
                         <Stack>
@@ -525,6 +526,7 @@ function AdminPage({ classes, trackTypes, registrations, onClassesSaved, onTrack
             <Group justify="space-between" align="center">
                 <Title order={1} size="h4">Admin</Title>
                 <Group>
+                    <Button component={Link} to="/" variant="light">Race Lineups</Button>
                     {isAdministrator ? (
                         <Button component={Link} to="/admin/users" variant="light">
                             User Management

@@ -6,7 +6,8 @@ This repository contains a full-stack web application for signing up for RC raci
 
 - Register racers by scanning printed sheets, reviewing names and class selections, and importing verified results
 - View registrations in the admin screen with real-time updates across connected devices
-- The home page redirects to admin login; public web signup is disabled
+- The public home page shows On Road and Off Road race lineups from LiveRC; public web signup is disabled
+- Lineups load when the page opens, when switching tracks, or when Refresh is pressed. Qualifier rounds and posted mains show races in running order with car numbers and participants. There is no background polling.
 - Download the registration list as a CSV (`FirstName,LastName,ClassName,IsPaid`) named `YYYY-MM-DD Race Registrations.csv`
 - Admin tools for reset, CSV download, printing, driver management, maintenance backup/restore, and class editing live on `/admin`
 - Admins can print scan-friendly sheets per track, photograph them from a phone, verify GPT-extracted names and race marks, and import the approved racers
@@ -70,7 +71,7 @@ The API key must never be placed in the React client or committed to this reposi
     ```bash
     npm run dev
     ```
-3. **Open** your browser to `http://localhost:3000` to sign in to the admin interface.
+3. **Open** your browser to `http://localhost:3000` to view public race lineups. Use the Admin link to sign in.
 4. Print sheets from `/admin`, then choose **Scan Registration Sheet** to photograph, verify, and import racers.
 
 ## Production
@@ -113,3 +114,7 @@ Start Command: npm start
 ```
 
 The build script explicitly installs the client's development dependencies because Vite is required to compile the production bundle. The running server uses only its production dependencies.
+
+## Public race lineups
+
+The home page (`/`, also linked by `/lineups`) reads the latest event from the two Race Place LiveRC sites through `/api/race-lineups/on-road` and `/api/race-lineups/off-road`. The server reads the event and published heat sheets on each request; no LiveRC credentials or API key are required. The event name/date and retrieval time are displayed so a previous event is identifiable. Failed sheets show an error and a direct LiveRC link. The parser depends on LiveRC?s public HTML structure, so changes to that structure may require updating `server/raceLineups.js`.

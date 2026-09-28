@@ -7,6 +7,7 @@ import AdminPage from './components/AdminPage';
 import SheetImportPage from './components/SheetImportPage';
 import UserManagementPage from './components/UserManagementPage';
 import NotFoundPage from './components/NotFoundPage';
+import RaceLineupsPage from './components/RaceLineupsPage';
 import racePlaceLogo from './assets/race-place-rc-logo.svg';
 
 function App() {
@@ -66,7 +67,8 @@ function App() {
             </Box>
             <Container size="lg" py="xl">
                 <Routes>
-                    <Route path="/" element={<Navigate to="/admin" replace />} />
+                    <Route path="/" element={<RaceLineupsPage />} />
+                    <Route path="/lineups" element={<Navigate to="/" replace />} />
                     <Route
                         path="/admin"
                         element={

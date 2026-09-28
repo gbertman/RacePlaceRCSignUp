@@ -9,6 +9,7 @@ const OpenAI = require('openai');
 const path = require('path');
 const Database = require('better-sqlite3');
 const { Server } = require('socket.io');
+const { getRaceLineups } = require('./raceLineups');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +21,15 @@ const io = new Server(server, {
 });
 app.use(cors());
 app.use(express.json());
+
+app.get('/api/race-lineups/:track', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+        res.json(await getRaceLineups(req.params.track));
+    } catch (error) {
+        res.status(error.status || 502).json({ error: 'Unable to load race lineups. Please try again.' });
+    }
+});
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_MIGRATIONS_DIR = path.join(__dirname, 'migrations');

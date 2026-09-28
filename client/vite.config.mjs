@@ -12,6 +12,9 @@ export default defineConfig({
     host: true,
     port: 3000,
     proxy: {
+      '/api': {
+        target: apiTarget,
+      },
       '/socket.io': {
         target: apiTarget,
         ws: true,

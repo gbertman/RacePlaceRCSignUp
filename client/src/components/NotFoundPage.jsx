@@ -10,8 +10,8 @@ function NotFoundPage() {
             <Text className="not-found-copy">
                 The page you requested does not exist or may have been moved.
             </Text>
-            <Button component={Link} to="/admin">
-                Return to Admin
+            <Button component={Link} to="/">
+                Return to Race Lineups
             </Button>
             </Stack>
         </Paper>
