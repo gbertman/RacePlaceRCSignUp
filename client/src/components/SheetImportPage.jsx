@@ -32,7 +32,7 @@ function resizeSheetImage(file) {
         const image = document.createElement('img');
 
         image.onload = () => {
-            const maxDimension = 2048;
+            const maxDimension = 4096;
             const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
@@ -54,8 +54,12 @@ function resizeSheetImage(file) {
                     reject(new Error('Unable to prepare the sheet image'));
                     return;
                 }
+                if (blob.size > 10 * 1024 * 1024) {
+                    reject(new Error('The prepared photo exceeds 10 MB. Crop to the sheet and try again.'));
+                    return;
+                }
                 resolve(new File([blob], 'registration-sheet.jpg', { type: 'image/jpeg' }));
-            }, 'image/jpeg', 0.85);
+            }, 'image/jpeg', 0.95);
         };
 
         image.onerror = () => {

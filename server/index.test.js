@@ -12,6 +12,7 @@ process.env.SKIP_BUNDLED_DATA_MIGRATIONS = 'true';
 
 const {
     applyDataMigration,
+    buildSheetAnalysisRequest,
     buildSheetExtractionSchema,
     closeDatabase,
     ensureDriverNicknameColumn,
@@ -258,6 +259,80 @@ test('keeps an unmatched handwritten name as a provisional new driver', () => {
 
     assert.equal(row.isNewDriver, true);
     assert.equal(row.existingDriver, null);
+});
+
+test('uses handwritten evidence when the model substitutes a different known driver', () => {
+    const [row] = prepareSheetRows({ rows: [{
+        rawName: 'Brian Shuma', firstName: 'Taylor', lastName: 'Racer', nameConfidence: 0.95,
+        classSelections: [{ className: 'Stock', selected: true, crossedOut: false, confidence: 0.9 }],
+    }] }, [{ name: 'Stock' }], [
+        { firstName: 'Brian', lastName: 'Shuma' },
+        { firstName: 'Taylor', lastName: 'Racer' },
+    ]);
+    assert.equal(row.firstName, 'Brian');
+    assert.equal(row.lastName, 'Shuma');
+    assert.equal(row.existingDriver.firstName, 'Brian');
+});
+
+test('does not automatically choose between drivers sharing a handwritten nickname', () => {
+    const [row] = prepareSheetRows({ rows: [{
+        rawName: 'Rocket', firstName: 'Brian', lastName: 'Shuma', nameConfidence: 0.8,
+        classSelections: [],
+    }] }, [{ name: 'Stock' }], [
+        { firstName: 'Brian', lastName: 'Shuma', nickname: 'Rocket' },
+        { firstName: 'Taylor', lastName: 'Racer', nickname: 'Rocket' },
+    ]);
+    assert.equal(row.existingDriver, null);
+    assert.ok(row.warnings.includes('Confirm the driver match'));
+});
+
+test('flags uncertain blank cells and missing confidence for review', () => {
+    const [row] = prepareSheetRows({ rows: [{
+        rawName: 'Taylor Racer', firstName: 'Taylor', lastName: 'Racer',
+        classSelections: [
+            { className: 'Stock', selected: false, crossedOut: false, confidence: 0.4 },
+            { className: 'Novice', selected: true, crossedOut: false },
+        ],
+    }] }, [{ name: 'Stock' }, { name: 'Novice' }], []);
+    assert.deepEqual(row.classes, ['Novice']);
+    assert.ok(row.warnings.includes('Check race marks: Stock, Novice'));
+    assert.ok(row.warnings.includes('Check the handwritten name'));
+});
+
+test('retains image detail for the default model and supports older model overrides', () => {
+    const previousModel = process.env.OPENAI_VISION_MODEL;
+    const previousDetail = process.env.OPENAI_VISION_DETAIL;
+    const previousTier = process.env.OPENAI_SERVICE_TIER;
+    const options = {
+        imageBuffer: Buffer.from('test-image'), mimeType: 'image/jpeg', trackName: 'Oval',
+        raceClasses: [{ name: 'Stock' }, { name: 'Novice' }], drivers: [],
+    };
+    try {
+        delete process.env.OPENAI_VISION_MODEL;
+        delete process.env.OPENAI_VISION_DETAIL;
+        delete process.env.OPENAI_SERVICE_TIER;
+        const request = buildSheetAnalysisRequest(options);
+        assert.equal(request.model, 'gpt-6-astra');
+        assert.deepEqual(request.reasoning, { effort: 'high' });
+        assert.equal(request.service_tier, 'default');
+        assert.equal(request.input[0].content[1].detail, 'original');
+        assert.equal(request.input[0].content[1].image_url, 'data:image/jpeg;base64,dGVzdC1pbWFnZQ==');
+        assert.equal(request.store, false);
+        process.env.OPENAI_VISION_MODEL = 'gpt-4.1';
+        assert.equal(buildSheetAnalysisRequest(options).reasoning, undefined);
+        assert.equal(buildSheetAnalysisRequest(options).input[0].content[1].detail, 'high');
+        process.env.OPENAI_SERVICE_TIER = 'fast';
+        assert.equal(buildSheetAnalysisRequest(options).service_tier, 'fast');
+        process.env.OPENAI_VISION_DETAIL = 'low';
+        assert.equal(buildSheetAnalysisRequest(options).input[0].content[1].detail, 'low');
+    } finally {
+        if (previousModel === undefined) delete process.env.OPENAI_VISION_MODEL;
+        else process.env.OPENAI_VISION_MODEL = previousModel;
+        if (previousDetail === undefined) delete process.env.OPENAI_VISION_DETAIL;
+        else process.env.OPENAI_VISION_DETAIL = previousDetail;
+        if (previousTier === undefined) delete process.env.OPENAI_SERVICE_TIER;
+        else process.env.OPENAI_SERVICE_TIER = previousTier;
+    }
 });
 
 test('constrains GPT race-class output to the selected track classes', () => {

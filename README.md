@@ -41,19 +41,23 @@ $env:OPENAI_API_KEY='your-api-key'
 npm start
 ```
 
-The default model is `gpt-5.6-terra`. Override it when needed:
+The default model is `gpt-6-astra` with high reasoning effort, prioritizing accuracy over scan speed. Override the model when needed (non-Astra overrides use their model's default reasoning):
 
 ```powershell
-$env:OPENAI_VISION_MODEL='gpt-5.6-terra'
+$env:OPENAI_VISION_MODEL='gpt-6-astra'
 ```
 
-Sheet analysis uses OpenAI Fast mode by default. To return to standard processing, set:
+Sheet analysis uses standard processing by default. To opt into Fast mode, set:
 
 ```powershell
-$env:OPENAI_SERVICE_TIER='default'
+$env:OPENAI_SERVICE_TIER='fast'
 ```
 
 The API key must never be placed in the React client or committed to this repository. Sheet photographs are held in memory only for analysis and are not written to disk. GPT output is presented on a required verification page before registrations or new drivers are saved.
+
+Photos retain up to 4096 pixels on their longest side. GPT-6 Astra and GPT-5.6 Sol/Terra/Luna use `original` image detail to preserve small handwriting and race marks; other model overrides use `high`. Set `OPENAI_VISION_DETAIL` to a detail level supported by your model to override this. Higher image detail and reasoning effort can increase scan cost and latency. Include the printed column headers in the photo: class assignments follow those headers, including on older sheets with a different column order.
+
+Existing environment overrides take precedence over these defaults. When deploying this upgrade, update or remove any old `OPENAI_VISION_MODEL` and `OPENAI_SERVICE_TIER` settings, then restart the server. Validate accuracy on representative sheet photos before relying on the new model's results.
 
 - [OpenAI image and vision documentation](https://developers.openai.com/api/docs/guides/images-vision)
 - [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs)

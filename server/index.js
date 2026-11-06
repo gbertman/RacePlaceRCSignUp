@@ -654,7 +654,8 @@ function findExactDriver(candidateName, drivers) {
 }
 
 function findDriverSuggestions(firstName, lastName, rawName, drivers) {
-    const candidateName = `${firstName || ''} ${lastName || ''}`.trim() || rawName;
+    // Match the transcription, not a name the model may have substituted from the roster.
+    const candidateName = String(rawName || '').trim() || `${firstName || ''} ${lastName || ''}`.trim();
     return drivers
         .map(driver => ({
             firstName: driver.firstName,
@@ -675,7 +676,7 @@ function buildSheetExtractionSchema(classNames, trackName) {
             className: { type: 'string', enum: classNames },
             selected: { type: 'boolean' },
             crossedOut: { type: 'boolean' },
-            confidence: { type: 'number' },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
         },
         required: ['className', 'selected', 'crossedOut', 'confidence'],
     };
@@ -695,7 +696,7 @@ function buildSheetExtractionSchema(classNames, trackName) {
                         rawName: { type: 'string' },
                         firstName: { type: 'string' },
                         lastName: { type: 'string' },
-                        nameConfidence: { type: 'number' },
+                        nameConfidence: { type: 'number', minimum: 0, maximum: 1 },
                         crossedOut: { type: 'boolean' },
                         classSelections: {
                             type: 'array',
@@ -720,13 +721,7 @@ function buildSheetExtractionSchema(classNames, trackName) {
     };
 }
 
-async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, raceClasses, drivers }) {
-    if (!process.env.OPENAI_API_KEY) {
-        const error = new Error('Set OPENAI_API_KEY on the server to enable GPT sheet scanning');
-        error.statusCode = 503;
-        throw error;
-    }
-
+function buildSheetAnalysisRequest({ imageBuffer, mimeType, trackName, raceClasses, drivers }) {
     const classNames = raceClasses.map(item => item.name);
     const driverNames = drivers.map(driver => {
         const nickname = String(driver.nickname || '').trim();
@@ -734,25 +729,34 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
             ? `${driver.firstName} ${driver.lastName} (nickname: ${nickname})`
             : `${driver.firstName} ${driver.lastName}`;
     });
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const model = getSheetVisionModel();
+    const isAstra = /^gpt-6-astra(-|$)/.test(model);
     const prompt = [
         'Read this photographed RacePlaceRC registration sheet.',
         `The verified track is: ${trackName}.`,
-        `Each race column is labeled with its full class name. From left to right, the columns are: ${classNames.join('; ')}.`,
+        `Allowed race classes (this is NOT the photographed column order): ${JSON.stringify(classNames)}.`,
+        'First read the printed column headers and locate the table grid. Map each physical column to its printed class name; never assume the supplied class list is in sheet order.',
+        'The RP-RC-1 footer, if visible, lists the printed class order and can corroborate the headers. Older sheets may have different columns. Do not shift marks into a neighboring column or substitute an unknown class.',
         `Known driver names are: ${driverNames.length ? driverNames.join('; ') : '(none)'}.`,
         'Return every non-empty handwritten racer row, including rows that were crossed out.',
-        'Names may be written first-last or last-first. Use known drivers only as spelling evidence, never invent a person.',
+        'Copy rawName literally from the handwriting before consulting known drivers. Never replace rawName with a roster name. Names may be written first-last or last-first.',
+        'Use known drivers only as spelling evidence for firstName and lastName when the visible handwriting supports the match. Do not force an unfamiliar or ambiguous name into the roster.',
         'Preserve an unknown handwritten name as closely as possible and split it into likely firstName and lastName.',
         'Set the row crossedOut field true only when the racer name or the entire row is clearly scratched through or canceled.',
         'For every returned row, include every supplied race class once and in order.',
+        'Follow each racer row across the grid, accounting for camera tilt. Ignore printed row numbers, grid lines, empty checkbox outlines, shadows, and marks in adjacent rows.',
+        'An X or check inside a race cell is an active selection, not a cancellation by itself. Only treat a mark as canceled when additional strike-through or scribbling clearly cancels it.',
         'For a race cell, set selected true only for a clear active mark. Set crossedOut true when a previous mark was clearly scratched out or canceled, and set selected false for that cell.',
         'A race selection cannot be both selected and crossedOut. Use false for both when the cell is blank.',
         'Confidence values must be between 0 and 1. Use notes for ambiguous scratch-outs, overwritten marks, or unclear handwriting.',
+        'Confidence describes certainty of the cell interpretation, including blank cells. If a header or mark is unreadable or a supplied class is missing, leave selected false, use confidence below 0.7, and explain in notes. Do not guess.',
+        'Before returning, recheck every name and selected cell against its row and printed column header.',
     ].join('\n');
 
-    const response = await client.responses.create({
-        model: process.env.OPENAI_VISION_MODEL || 'gpt-5.6-terra',
-        service_tier: process.env.OPENAI_SERVICE_TIER || 'fast',
+    return {
+        model,
+        service_tier: process.env.OPENAI_SERVICE_TIER || 'default',
+        ...(isAstra ? { reasoning: { effort: 'high' } } : {}),
         store: false,
         input: [
             {
@@ -762,7 +766,7 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
                     {
                         type: 'input_image',
                         image_url: `data:${mimeType};base64,${imageBuffer.toString('base64')}`,
-                        detail: 'high',
+                        detail: process.env.OPENAI_VISION_DETAIL || (isAstra || /^gpt-5\.6-(terra|sol|luna)(-|$)/.test(model) ? 'original' : 'high'),
                     },
                 ],
             },
@@ -775,7 +779,21 @@ async function analyzeRegistrationSheet({ imageBuffer, mimeType, trackName, race
                 schema: buildSheetExtractionSchema(classNames, trackName),
             },
         },
-    });
+    };
+}
+
+function getSheetVisionModel() {
+    return process.env.OPENAI_VISION_MODEL || 'gpt-6-astra';
+}
+
+async function analyzeRegistrationSheet(options) {
+    if (!process.env.OPENAI_API_KEY) {
+        const error = new Error('Set OPENAI_API_KEY on the server to enable GPT sheet scanning');
+        error.statusCode = 503;
+        throw error;
+    }
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.responses.create(buildSheetAnalysisRequest(options));
 
     if (!response.output_text) {
         throw new Error('GPT did not return registration sheet data');
@@ -805,14 +823,16 @@ function prepareSheetRows(extraction, raceClasses, drivers) {
                 .filter(item => item?.crossedOut && availableClassNames.has(item.className))
                 .map(item => item.className);
             const lowConfidenceMarks = (Array.isArray(row.classSelections) ? row.classSelections : [])
-                .filter(item => (item?.selected || item?.crossedOut) && Number(item.confidence) < 0.7)
+                .filter(item => availableClassNames.has(item?.className) &&
+                    (!Number.isFinite(item.confidence) || item.confidence < 0.7))
                 .map(item => item.className);
             const warnings = [];
             const crossedOut = row.crossedOut === true;
 
             if (crossedOut) warnings.push('Racer row appears crossed out');
             if (crossedOutClasses.length) warnings.push(`Crossed-out race marks: ${crossedOutClasses.join(', ')}`);
-            if (Number(row.nameConfidence) < 0.75) warnings.push('Check the handwritten name');
+            if (!Number.isFinite(row.nameConfidence) || row.nameConfidence < 0.75) warnings.push('Check the handwritten name');
+            if (bestSuggestion && !hasClearMatch) warnings.push('Confirm the driver match');
             if (lowConfidenceMarks.length) warnings.push(`Check race marks: ${lowConfidenceMarks.join(', ')}`);
             if (!classes.length) warnings.push('No race class was selected');
             if (!firstName || !lastName) warnings.push('First and last name are required');
@@ -1091,7 +1111,7 @@ app.post(
                 trackName,
                 raceClasses,
                 rows,
-                model: process.env.OPENAI_VISION_MODEL || 'gpt-5.6-terra',
+                model: getSheetVisionModel(),
             });
         } catch (error) {
             console.error('Unable to analyze registration sheet:', error);
@@ -1331,6 +1351,7 @@ if (require.main === module) {
 module.exports = {
     app,
     applyDataMigration,
+    buildSheetAnalysisRequest,
     buildSheetExtractionSchema,
     closeDatabase,
     ensureDriverNicknameColumn,
